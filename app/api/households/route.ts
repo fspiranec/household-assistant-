@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/helpers";
-import { HouseholdMemberHouseholdRow } from "@/types";
+import { Household } from "@/types";
+
+type HouseholdMemberJoinRow = {
+  households: Household[] | null;
+};
 
 export async function GET() {
   const auth = await requireUser();
@@ -13,8 +17,9 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  const rows = (data ?? []) as HouseholdMemberHouseholdRow[];
-  return NextResponse.json(rows.flatMap((r) => (r.households ? [r.households] : [])));
+  const rows = (data ?? []) as HouseholdMemberJoinRow[];
+  const households = rows.flatMap((r) => r.households ?? []);
+  return NextResponse.json(households);
 }
 
 export async function POST(req: NextRequest) {

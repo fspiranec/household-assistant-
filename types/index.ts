@@ -43,9 +43,6 @@ export type ExpensesResponse = {
   data: Expense[];
 };
 
-export type HouseholdMemberHouseholdRow = {
-  households: Household | null;
-};
 
 export type ExpenseFilters = {
   start: string;
