@@ -25,6 +25,7 @@ export default function ExpensesPage() {
     end: "",
     category: "",
     tag: "",
+    merchant: "",
     exclude_private: false
   });
 
@@ -51,7 +52,7 @@ export default function ExpensesPage() {
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold">Expense List</h1>
-      <div className="grid gap-2 md:grid-cols-6">
+      <div className="grid gap-2 md:grid-cols-7">
         <select
           className="rounded-md border border-slate-300 px-3 py-2 text-sm"
           value={filters.household_id}
@@ -79,6 +80,11 @@ export default function ExpensesPage() {
           placeholder="Tag"
           value={filters.tag}
           onChange={(e) => setFilters((p) => ({ ...p, tag: e.target.value }))}
+        />
+        <Input
+          placeholder="Merchant"
+          value={filters.merchant}
+          onChange={(e) => setFilters((p) => ({ ...p, merchant: e.target.value }))}
         />
         <select
           className="rounded-md border border-slate-300 px-3 py-2 text-sm"

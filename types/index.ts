@@ -49,6 +49,7 @@ export type ExpenseFilters = {
   end: string;
   category: string;
   tag: string;
+  merchant: string;
   exclude_private: boolean;
 };
 

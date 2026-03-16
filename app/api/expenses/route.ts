@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   let query = auth.supabase.from("expenses").select("*").order("date", { ascending: false });
 
   const householdId = params.get("household_id");
-  const createdBy = params.get("created_by");
+  const createdBy = params.getAll("created_by").filter(Boolean);
   const merchants = params.getAll("merchant").filter(Boolean);
   const categories = params.getAll("category").filter(Boolean);
   const tags = params.getAll("tag").filter(Boolean);
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   const excludePrivate = params.get("exclude_private") === "true";
 
   if (householdId) query = query.eq("household_id", householdId);
-  if (createdBy) query = query.eq("created_by", createdBy);
+  if (createdBy.length > 0) query = query.in("created_by", createdBy);
   if (merchants.length > 0) query = query.in("merchant", merchants);
   if (start) query = query.gte("date", start);
   if (end) query = query.lte("date", end);
