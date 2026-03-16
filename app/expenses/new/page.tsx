@@ -8,7 +8,7 @@ export default function NewExpensePage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [message, setMessage] = useState("");
   const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState("");
   const [customTags, setCustomTags] = useState("");
   const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "" });
 
@@ -42,7 +42,10 @@ export default function NewExpensePage() {
     setForm((p) => ({ ...p, merchant: data.merchant ?? p.merchant, amount: String(data.total ?? p.amount), date: data.date ?? p.date }));
   };
 
-  const allTags = useMemo(() => [...new Set([...selectedTags, ...customTags.split(",").map((t) => t.trim()).filter(Boolean)])], [selectedTags, customTags]);
+  const allTags = useMemo(
+    () => [...new Set([selectedTag, ...customTags.split(",").map((t) => t.trim())].filter(Boolean))],
+    [selectedTag, customTags]
+  );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -60,15 +63,15 @@ export default function NewExpensePage() {
 
     setMessage("Expense saved");
     setCustomTags("");
-    setSelectedTags([]);
+    setSelectedTag("");
     setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "" }));
   };
 
   return (
     <section className="rounded-lg bg-white p-6 shadow">
       <h1 className="mb-4 text-2xl font-semibold">Expense Form</h1>
-      <form className="grid gap-3 md:grid-cols-2" onSubmit={submit}>
-        <label className="text-sm">
+      <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+        <label className="flex flex-col gap-1 text-sm">
           Household
           <select
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -80,29 +83,36 @@ export default function NewExpensePage() {
             {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
         </label>
-        <Input placeholder="Amount" type="number" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} required />
-        <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} required />
+        <label className="flex flex-col gap-1 text-sm">
+          Amount
+          <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} required />
+        </label>
 
-        <label className="text-sm">
+        <label className="flex flex-col gap-1 text-sm">
+          Date
+          <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} required />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
           Merchant
           <Input list="merchant-options" placeholder="Merchant" value={form.merchant} onChange={(e) => setForm((p) => ({ ...p, merchant: e.target.value }))} required />
           <datalist id="merchant-options">{meta.merchants.map((m) => <option key={m} value={m} />)}</datalist>
         </label>
 
-        <label className="text-sm">
+        <label className="flex flex-col gap-1 text-sm">
           Category
           <Input list="category-options" placeholder="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required />
           <datalist id="category-options">{meta.categories.map((c) => <option key={c} value={c} />)}</datalist>
         </label>
 
-        <label className="text-sm md:col-span-2">
-          Existing tags
+        <label className="flex flex-col gap-1 text-sm md:col-span-2">
+          Tag
           <select
-            multiple
-            className="mt-1 h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={selectedTags}
-            onChange={(e) => setSelectedTags(Array.from(e.target.selectedOptions).map((o) => o.value))}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={selectedTag}
+            onChange={(e) => setSelectedTag(e.target.value)}
           >
+            <option value="">Select existing tag</option>
             {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>

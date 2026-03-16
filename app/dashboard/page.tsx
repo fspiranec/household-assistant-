@@ -4,7 +4,7 @@ import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
 import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
 
-type Preset = "today" | "day" | "week" | "month" | "custom";
+type Preset = "today" | "day" | "week" | "month" | "year" | "custom";
 
 type FilterState = {
   household_id: string;
@@ -45,6 +45,12 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
   if (preset === "month") {
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: formatDate(first), end: formatDate(last) };
+  }
+
+  if (preset === "year") {
+    const first = new Date(now.getFullYear(), 0, 1);
+    const last = new Date(now.getFullYear(), 11, 31);
     return { start: formatDate(first), end: formatDate(last) };
   }
 
@@ -179,6 +185,7 @@ export default function DashboardPage() {
             <option value="day">Specific day</option>
             <option value="week">This week</option>
             <option value="month">This month</option>
+            <option value="year">This year</option>
             <option value="custom">Custom range</option>
           </select>
           {filters.preset === "day" && <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.day} onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))} />}
