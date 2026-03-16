@@ -1,13 +1,16 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Household } from "@/types";
+import { ExpenseMetaResponse, Household } from "@/types";
 
 export default function NewExpensePage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [message, setMessage] = useState("");
-  const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "", tags: "" });
+  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState("");
+  const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "" });
 
   useEffect(() => {
     fetch("/api/households").then(async (res) => {
@@ -20,6 +23,15 @@ export default function NewExpensePage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!form.household_id) return;
+    fetch(`/api/expenses/meta?household_id=${form.household_id}`).then(async (res) => {
+      if (!res.ok) return;
+      const data = (await res.json()) as ExpenseMetaResponse;
+      setMeta(data);
+    });
+  }, [form.household_id]);
+
   const parseReceipt = async (file?: File) => {
     if (!file) return;
     const fd = new FormData();
@@ -30,12 +42,14 @@ export default function NewExpensePage() {
     setForm((p) => ({ ...p, merchant: data.merchant ?? p.merchant, amount: String(data.total ?? p.amount), date: data.date ?? p.date }));
   };
 
+  const allTags = useMemo(() => [...new Set([...selectedTags, ...customTags.split(",").map((t) => t.trim()).filter(Boolean)])], [selectedTags, customTags]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const res = await fetch("/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) })
+      body: JSON.stringify({ ...form, tags: allTags })
     });
 
     const data = await res.json().catch(() => ({}));
@@ -45,7 +59,9 @@ export default function NewExpensePage() {
     }
 
     setMessage("Expense saved");
-    setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "", tags: "" }));
+    setCustomTags("");
+    setSelectedTags([]);
+    setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "" }));
   };
 
   return (
@@ -66,9 +82,32 @@ export default function NewExpensePage() {
         </label>
         <Input placeholder="Amount" type="number" step="0.01" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} required />
         <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} required />
-        <Input placeholder="Merchant" value={form.merchant} onChange={(e) => setForm((p) => ({ ...p, merchant: e.target.value }))} required />
-        <Input placeholder="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required />
-        <Input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} />
+
+        <label className="text-sm">
+          Merchant
+          <Input list="merchant-options" placeholder="Merchant" value={form.merchant} onChange={(e) => setForm((p) => ({ ...p, merchant: e.target.value }))} required />
+          <datalist id="merchant-options">{meta.merchants.map((m) => <option key={m} value={m} />)}</datalist>
+        </label>
+
+        <label className="text-sm">
+          Category
+          <Input list="category-options" placeholder="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required />
+          <datalist id="category-options">{meta.categories.map((c) => <option key={c} value={c} />)}</datalist>
+        </label>
+
+        <label className="text-sm md:col-span-2">
+          Existing tags
+          <select
+            multiple
+            className="mt-1 h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={selectedTags}
+            onChange={(e) => setSelectedTags(Array.from(e.target.selectedOptions).map((o) => o.value))}
+          >
+            {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+
+        <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" />
         <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" />
         <Input type="file" onChange={(e) => parseReceipt(e.target.files?.[0])} className="md:col-span-2" />
         <Button type="submit" className="w-fit" disabled={!form.household_id}>Save Expense</Button>

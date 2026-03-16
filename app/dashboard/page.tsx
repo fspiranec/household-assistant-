@@ -2,32 +2,116 @@
 import { useEffect, useMemo, useState } from "react";
 import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
-import { Expense, ExpensesResponse, Household } from "@/types";
+import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
+
+type Preset = "today" | "day" | "week" | "month" | "custom";
+
+type FilterState = {
+  household_id: string;
+  created_by: string;
+  category: string;
+  tag: string;
+  merchant: string;
+  preset: Preset;
+  start: string;
+  end: string;
+  day: string;
+};
+
+function formatDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getPresetRange(preset: Preset, day: string): { start: string; end: string } {
+  const now = new Date();
+  if (preset === "today") {
+    const d = formatDate(now);
+    return { start: d, end: d };
+  }
+  if (preset === "day") {
+    const d = day || formatDate(now);
+    return { start: d, end: d };
+  }
+  if (preset === "week") {
+    const current = new Date(now);
+    const dayIndex = current.getDay();
+    const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+    const monday = new Date(current);
+    monday.setDate(current.getDate() + mondayOffset);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { start: formatDate(monday), end: formatDate(sunday) };
+  }
+  if (preset === "month") {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: formatDate(first), end: formatDate(last) };
+  }
+
+  return { start: "", end: "" };
+}
 
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
-  const [householdId, setHouseholdId] = useState("");
+  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
+  const [filters, setFilters] = useState<FilterState>({
+    household_id: "",
+    created_by: "",
+    category: "",
+    tag: "",
+    merchant: "",
+    preset: "month",
+    start: "",
+    end: "",
+    day: formatDate(new Date())
+  });
+  const [appliedFilters, setAppliedFilters] = useState<FilterState>(filters);
 
   useEffect(() => {
     fetch("/api/households").then(async (res) => {
       if (!res.ok) return;
       const data = (await res.json()) as Household[];
       setHouseholds(data);
-      if (data.length > 0) setHouseholdId(data[0].id);
+      if (data.length > 0) {
+        const household_id = data[0].id;
+        setFilters((p) => ({ ...p, household_id }));
+        setAppliedFilters((p) => ({ ...p, household_id }));
+      }
     });
   }, []);
 
   useEffect(() => {
+    if (!filters.household_id) return;
+    fetch(`/api/expenses/meta?household_id=${filters.household_id}`).then(async (res) => {
+      if (!res.ok) return;
+      setMeta((await res.json()) as ExpenseMetaResponse);
+    });
+  }, [filters.household_id]);
+
+  useEffect(() => {
     const params = new URLSearchParams();
-    if (householdId) params.set("household_id", householdId);
+    if (appliedFilters.household_id) params.set("household_id", appliedFilters.household_id);
+    if (appliedFilters.created_by) params.set("created_by", appliedFilters.created_by);
+    if (appliedFilters.category) params.set("category", appliedFilters.category);
+    if (appliedFilters.tag) params.set("tag", appliedFilters.tag);
+    if (appliedFilters.merchant) params.set("merchant", appliedFilters.merchant);
+
+    const range = appliedFilters.preset === "custom"
+      ? { start: appliedFilters.start, end: appliedFilters.end }
+      : getPresetRange(appliedFilters.preset, appliedFilters.day);
+
+    if (range.start) params.set("start", range.start);
+    if (range.end) params.set("end", range.end);
 
     fetch(`/api/expenses?${params.toString()}`).then(async (res) => {
       if (!res.ok) return;
       const payload = (await res.json()) as ExpensesResponse;
       setExpenses(payload.data ?? []);
     });
-  }, [householdId]);
+  }, [appliedFilters]);
+
+  const applyFilters = () => setAppliedFilters(filters);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const byCategory = Object.entries(
@@ -55,37 +139,71 @@ export default function DashboardPage() {
         acc[key] = current;
         return acc;
       }, {})
-    ).map(([userId, userStats]) => ({ userId, ...userStats })).sort((a, b) => b.total - a.total),
-    [expenses]
+    )
+      .map(([userId, userStats]) => ({
+        userId,
+        name: meta.members.find((m) => m.id === userId)?.display_name || userId,
+        ...userStats
+      }))
+      .sort((a, b) => b.total - a.total),
+    [expenses, meta.members]
   );
 
   return (
     <div className="space-y-6">
       <section className="rounded-lg bg-white p-6 shadow space-y-3">
         <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
-        <label className="block text-sm">
-          Household
-          <select
-            className="mt-1 w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={householdId}
-            onChange={(e) => setHouseholdId(e.target.value)}
-          >
+        <div className="grid gap-2 md:grid-cols-3">
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
             {households.length === 0 && <option value="">No households found</option>}
             {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
-        </label>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.created_by} onChange={(e) => setFilters((p) => ({ ...p, created_by: e.target.value }))}>
+            <option value="">All users</option>
+            {meta.members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+          </select>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))}>
+            <option value="">All categories</option>
+            {meta.categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.tag} onChange={(e) => setFilters((p) => ({ ...p, tag: e.target.value }))}>
+            <option value="">All tags</option>
+            {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.merchant} onChange={(e) => setFilters((p) => ({ ...p, merchant: e.target.value }))}>
+            <option value="">All merchants</option>
+            {meta.merchants.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
+            <option value="today">Today</option>
+            <option value="day">Specific day</option>
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+            <option value="custom">Custom range</option>
+          </select>
+          {filters.preset === "day" && <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.day} onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))} />}
+          {filters.preset === "custom" && (
+            <>
+              <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.start} onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))} />
+              <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.end} onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))} />
+            </>
+          )}
+        </div>
+        <button type="button" onClick={applyFilters} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Apply Filters</button>
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
+
       <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-2 font-semibold">Spend by Category</h2>
           <SpendByCategoryChart data={byCategory} />
         </div>
         <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 font-semibold">Monthly Trend</h2>
+          <h2 className="mb-2 font-semibold">Trend</h2>
           <MonthlySpendChart data={byMonth} />
         </div>
       </section>
+
       <section className="rounded-lg bg-white p-6 shadow">
         <h2 className="mb-3 font-semibold">People Expense Statistics (selected household)</h2>
         <table className="w-full text-sm">
@@ -99,14 +217,14 @@ export default function DashboardPage() {
           <tbody>
             {byPerson.map((row) => (
               <tr key={row.userId} className="border-b">
-                <td className="p-2">{row.userId}</td>
+                <td className="p-2">{row.name}</td>
                 <td className="p-2 text-right">{row.count}</td>
                 <td className="p-2 text-right">${row.total.toFixed(2)}</td>
               </tr>
             ))}
             {byPerson.length === 0 && (
               <tr>
-                <td className="p-2 text-slate-500" colSpan={3}>No expenses in this household yet.</td>
+                <td className="p-2 text-slate-500" colSpan={3}>No expenses match this filter.</td>
               </tr>
             )}
           </tbody>

@@ -43,10 +43,21 @@ export type ExpensesResponse = {
   data: Expense[];
 };
 
-
 export type ExpenseFilters = {
   start: string;
   end: string;
   category: string;
   tag: string;
+};
+
+export type HouseholdMemberOption = {
+  id: string;
+  display_name: string;
+};
+
+export type ExpenseMetaResponse = {
+  categories: string[];
+  tags: string[];
+  merchants: string[];
+  members: HouseholdMemberOption[];
 };
