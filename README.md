@@ -41,6 +41,7 @@ lib/
 supabase/
   config.toml
   migrations/001_init.sql
+  migrations/002_repair_existing_project.sql
 ```
 
 ## API Endpoints
@@ -60,7 +61,7 @@ supabase/
    cp .env.example .env.local
    ```
 3. Fill env values with your Supabase project keys and optional OpenAI API key.
-4. Apply SQL migration in Supabase SQL editor (`supabase/migrations/001_init.sql`).
+4. Apply SQL migration in Supabase SQL editor (`supabase/migrations/001_init.sql`) for a fresh database.
 5. Run dev server:
    ```bash
    npm run dev
@@ -71,7 +72,8 @@ supabase/
 - Configure Google OAuth in Supabase Auth provider settings.
 - Configure SMTP in Supabase Auth for transactional invite/recovery emails.
 - This project expects `public.users` to mirror `auth.users`. The migration now creates `handle_new_auth_user` trigger and also backfills existing auth users.
-- If you already ran an older migration, run the latest SQL in `supabase/migrations/001_init.sql` again (or run the trigger/backfill part manually) so newly registered users appear in `public.users`.
+- If you already have tables and see `relation "users" already exists`, do **not** re-run `001_init.sql`; run `supabase/migrations/002_repair_existing_project.sql` instead.
+- `002_repair_existing_project.sql` is safe for existing projects: it re-creates trigger/policies idempotently, re-backfills `public.users`, and re-applies grants/RLS.
 
 ## Deploy to Vercel
 1. Push repository to Git provider.
