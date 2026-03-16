@@ -9,6 +9,7 @@ export type Expense = {
   tags: string[] | null;
   notes: string | null;
   parsed_payload: Record<string, unknown> | null;
+  is_private: boolean;
 };
 
 export type ExpenseItem = {
@@ -43,10 +44,23 @@ export type ExpensesResponse = {
   data: Expense[];
 };
 
-
 export type ExpenseFilters = {
   start: string;
   end: string;
   category: string;
   tag: string;
+  merchant: string;
+  exclude_private: boolean;
+};
+
+export type HouseholdMemberOption = {
+  id: string;
+  display_name: string;
+};
+
+export type ExpenseMetaResponse = {
+  categories: string[];
+  tags: string[];
+  merchants: string[];
+  members: HouseholdMemberOption[];
 };
