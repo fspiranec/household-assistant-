@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/api/helpers";
 
 type ExpenseWriteBody = {
@@ -19,7 +20,7 @@ function normalizeTags(tags: unknown) {
 }
 
 async function upsertMetadata(
-  supabase: any,
+  supabase: SupabaseClient,
   householdId: string,
   category: string,
   tags: string[],
