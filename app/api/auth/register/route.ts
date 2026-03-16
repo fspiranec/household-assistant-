@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { createAdminSupabase, createServerSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -7,8 +7,29 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase.auth.signUp({
     email: body.email,
     password: body.password,
-    options: { data: { username: body.username, first_name: body.first_name, last_name: body.last_name } }
+    options: {
+      data: { username: body.username, first_name: body.first_name, last_name: body.last_name },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+    }
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (data.user) {
+    const admin = createAdminSupabase();
+    const username = body.username || body.email?.split("@")[0] || `user_${data.user.id.slice(0, 8)}`;
+
+    const { error: profileError } = await admin.from("users").upsert({
+      id: data.user.id,
+      username,
+      first_name: body.first_name ?? "",
+      last_name: body.last_name ?? "",
+      email: body.email
+    });
+
+    if (profileError) {
+      return NextResponse.json({ error: `User created in auth, but profile sync failed: ${profileError.message}` }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ message: "Registered successfully", user: data.user });
 }
