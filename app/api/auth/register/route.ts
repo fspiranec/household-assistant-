@@ -15,13 +15,17 @@ export async function POST(req: NextRequest) {
     const admin = createAdminSupabase();
     const username = body.username || body.email?.split("@")[0] || `user_${data.user.id.slice(0, 8)}`;
 
-    await admin.from("users").upsert({
+    const { error: profileError } = await admin.from("users").upsert({
       id: data.user.id,
       username,
       first_name: body.first_name ?? "",
       last_name: body.last_name ?? "",
       email: body.email
     });
+
+    if (profileError) {
+      return NextResponse.json({ error: `User created in auth, but profile sync failed: ${profileError.message}` }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ message: "Registered successfully", user: data.user });

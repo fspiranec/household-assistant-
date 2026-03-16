@@ -32,13 +32,14 @@ export async function middleware(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname === "/login";
+  const publicAuthRoutes = new Set(["/login", "/register", "/recover"]);
+  const isPublicAuthRoute = publicAuthRoutes.has(request.nextUrl.pathname);
 
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicAuthRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isLoginPage) {
+  if (user && isPublicAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
