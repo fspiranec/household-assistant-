@@ -10,7 +10,7 @@ export default function NewExpensePage() {
   const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
   const [selectedTag, setSelectedTag] = useState("");
   const [customTags, setCustomTags] = useState("");
-  const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "" });
+  const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "", is_private: false });
 
   useEffect(() => {
     fetch("/api/households").then(async (res) => {
@@ -64,7 +64,7 @@ export default function NewExpensePage() {
     setMessage("Expense saved");
     setCustomTags("");
     setSelectedTag("");
-    setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "" }));
+    setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "", is_private: false }));
   };
 
   return (
@@ -103,6 +103,18 @@ export default function NewExpensePage() {
           Category
           <Input list="category-options" placeholder="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required />
           <datalist id="category-options">{meta.categories.map((c) => <option key={c} value={c} />)}</datalist>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          Private expense
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={form.is_private ? "yes" : "no"}
+            onChange={(e) => setForm((p) => ({ ...p, is_private: e.target.value === "yes" }))}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
         </label>
 
         <label className="flex flex-col gap-1 text-sm md:col-span-2">

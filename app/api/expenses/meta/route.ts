@@ -29,11 +29,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [categoriesResult, tagsResult, merchantsResult, membersResult] = await Promise.all([
+  const [categoriesResult, tagsResult, merchantsResult, membersResult, expenseTagsResult] = await Promise.all([
     auth.supabase.from("expense_categories").select("name").eq("household_id", householdId).order("name"),
     auth.supabase.from("tags").select("name").eq("household_id", householdId).order("name"),
     auth.supabase.from("expenses").select("merchant").eq("household_id", householdId),
-    auth.supabase.from("household_members").select("user_id").eq("household_id", householdId)
+    auth.supabase.from("household_members").select("user_id").eq("household_id", householdId),
+    auth.supabase.from("expenses").select("tags").eq("household_id", householdId)
   ]);
 
   const memberRows = (membersResult.data ?? []) as { user_id: string }[];
@@ -50,7 +51,12 @@ export async function GET(req: NextRequest) {
   }
 
   const categories = [...new Set(((categoriesResult.data ?? []) as { name: string }[]).map((c) => c.name).filter(Boolean))];
-  const tags = [...new Set(((tagsResult.data ?? []) as { name: string }[]).map((t) => t.name).filter(Boolean))];
+  const tagsFromTable = ((tagsResult.data ?? []) as { name: string }[]).map((t) => t.name).filter(Boolean);
+  const tagsFromExpenses = ((expenseTagsResult.data ?? []) as { tags: string[] | null }[])
+    .flatMap((row) => row.tags ?? [])
+    .map((tag) => String(tag).trim())
+    .filter(Boolean);
+  const tags = [...new Set([...tagsFromTable, ...tagsFromExpenses])].sort();
   const merchants = [...new Set(((merchantsResult.data ?? []) as { merchant: string }[]).map((m) => m.merchant).filter(Boolean))].sort();
 
   const members = userIds.map((id) => {

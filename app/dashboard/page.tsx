@@ -12,6 +12,7 @@ type FilterState = {
   categories: string[];
   tags: string[];
   merchants: string[];
+  exclude_private: boolean;
   preset: Preset;
   start: string;
   end: string;
@@ -58,7 +59,7 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
 }
 
 function getMultiValues(event: ChangeEvent<HTMLSelectElement>) {
-  return Array.from(event.target.selectedOptions).map((option) => option.value);
+  return Array.from(event.target.selectedOptions).map((option) => String(option.value));
 }
 
 export default function DashboardPage() {
@@ -71,6 +72,7 @@ export default function DashboardPage() {
     categories: [],
     tags: [],
     merchants: [],
+    exclude_private: false,
     preset: "month",
     start: "",
     end: "",
@@ -106,6 +108,7 @@ export default function DashboardPage() {
     appliedFilters.categories.forEach((category) => params.append("category", category));
     appliedFilters.tags.forEach((tag) => params.append("tag", tag));
     appliedFilters.merchants.forEach((merchant) => params.append("merchant", merchant));
+    if (appliedFilters.exclude_private) params.set("exclude_private", "true");
 
     const range = appliedFilters.preset === "custom"
       ? { start: appliedFilters.start, end: appliedFilters.end }
@@ -163,42 +166,81 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg bg-white p-6 shadow">
         <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
-        <div className="grid gap-2 md:grid-cols-3">
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
-            {households.length === 0 && <option value="">No households found</option>}
-            {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-          </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.created_by} onChange={(e) => setFilters((p) => ({ ...p, created_by: e.target.value }))}>
-            <option value="">All users</option>
-            {meta.members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
-          </select>
-          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.categories} onChange={(e) => setFilters((p) => ({ ...p, categories: getMultiValues(e) }))}>
-            {meta.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.tags} onChange={(e) => setFilters((p) => ({ ...p, tags: getMultiValues(e) }))}>
-            {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.merchants} onChange={(e) => setFilters((p) => ({ ...p, merchants: getMultiValues(e) }))}>
-            {meta.merchants.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
-            <option value="today">Today</option>
-            <option value="day">Specific day</option>
-            <option value="week">This week</option>
-            <option value="month">This month</option>
-            <option value="year">This year</option>
-            <option value="custom">Custom range</option>
-          </select>
-          {filters.preset === "day" && <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.day} onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))} />}
-          {filters.preset === "custom" && (
-            <>
-              <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.start} onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))} />
-              <input type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.end} onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))} />
-            </>
-          )}
+        <h2 className="text-sm font-medium text-slate-700">Filters</h2>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex min-w-max items-end gap-2">
+            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Household
+              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
+                {households.length === 0 && <option value="">No households found</option>}
+                {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+              User
+              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.created_by} onChange={(e) => setFilters((p) => ({ ...p, created_by: e.target.value }))}>
+                <option value="">All users</option>
+                {meta.members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Categories
+              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.categories} onChange={(e) => setFilters((p) => ({ ...p, categories: getMultiValues(e) }))}>
+                {meta.categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Tags
+              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.tags} onChange={(e) => setFilters((p) => ({ ...p, tags: getMultiValues(e) }))}>
+                {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Merchants
+              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.merchants} onChange={(e) => setFilters((p) => ({ ...p, merchants: getMultiValues(e) }))}>
+                {meta.merchants.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-[130px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Time frame
+              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
+                <option value="today">Today</option>
+                <option value="day">Specific day</option>
+                <option value="week">This week</option>
+                <option value="month">This month</option>
+                <option value="year">This year</option>
+                <option value="custom">Custom range</option>
+              </select>
+            </label>
+            {filters.preset === "day" && (
+              <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Day
+                <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.day} onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))} />
+              </label>
+            )}
+            {filters.preset === "custom" && (
+              <>
+                <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                  Start
+                  <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.start} onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))} />
+                </label>
+                <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                  End
+                  <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.end} onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))} />
+                </label>
+              </>
+            )}
+            <label className="flex min-w-[130px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Exclude private
+              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.exclude_private ? "yes" : "no"} onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "yes" }))}>
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+            <button type="button" onClick={applyFilters} className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+          </div>
         </div>
-        <p className="text-xs text-slate-500">Tip: hold Ctrl (Windows/Linux) or Cmd (Mac) to select multiple categories, tags, and merchants.</p>
-        <button type="button" onClick={applyFilters} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Apply Filters</button>
+        <p className="text-xs text-slate-500">For categories/tags/merchants: hold Ctrl (Windows/Linux) or Cmd (Mac) while selecting to choose multiple values.</p>
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
 
