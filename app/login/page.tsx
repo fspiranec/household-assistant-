@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -14,8 +15,11 @@ export default function LoginPage() {
     e.preventDefault();
     const res = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
     const data = await res.json();
-    setMessage(data.message || (res.ok ? "Logged in" : "Login failed"));
-    if (res.ok) router.push("/dashboard");
+    setMessage(data.message || data.error || (res.ok ? "Logged in" : "Login failed"));
+    if (res.ok) {
+      router.replace("/dashboard");
+      router.refresh();
+    }
   };
 
   return (
@@ -26,6 +30,10 @@ export default function LoginPage() {
         <Input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         <Button type="submit">Login</Button>
       </form>
+      <div className="mt-4 flex gap-4 text-sm">
+        <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
+        <Link href="/recover" className="text-blue-600 hover:underline">Forgot password?</Link>
+      </div>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
     </section>
   );

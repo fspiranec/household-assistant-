@@ -25,13 +25,8 @@ export async function POST(req: NextRequest) {
   );
 
   const { email, password } = await req.json();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return NextResponse.json({ error: error.message }, { status: 401 });
 
-  return NextResponse.json(
-    { message: "Logged in", session: data.session },
-    {
-      headers: response.headers
-    }
-  );
+  return response;
 }
