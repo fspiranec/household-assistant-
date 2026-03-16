@@ -35,6 +35,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/households">Households</Link>
                   <Link href="/export">Export</Link>
                   <Link href="/profile">Profile</Link>
+                  <form action="/api/auth/logout" method="post">
+                    <button type="submit" className="text-sm">Logout</button>
+                  </form>
                 </>
               )}
             </div>
