@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
 import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
@@ -9,9 +9,9 @@ type Preset = "today" | "day" | "week" | "month" | "year" | "custom";
 type FilterState = {
   household_id: string;
   created_by: string;
-  category: string;
-  tag: string;
-  merchant: string;
+  categories: string[];
+  tags: string[];
+  merchants: string[];
   preset: Preset;
   start: string;
   end: string;
@@ -57,6 +57,10 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
   return { start: "", end: "" };
 }
 
+function getMultiValues(event: ChangeEvent<HTMLSelectElement>) {
+  return Array.from(event.target.selectedOptions).map((option) => option.value);
+}
+
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -64,9 +68,9 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState<FilterState>({
     household_id: "",
     created_by: "",
-    category: "",
-    tag: "",
-    merchant: "",
+    categories: [],
+    tags: [],
+    merchants: [],
     preset: "month",
     start: "",
     end: "",
@@ -99,9 +103,9 @@ export default function DashboardPage() {
     const params = new URLSearchParams();
     if (appliedFilters.household_id) params.set("household_id", appliedFilters.household_id);
     if (appliedFilters.created_by) params.set("created_by", appliedFilters.created_by);
-    if (appliedFilters.category) params.set("category", appliedFilters.category);
-    if (appliedFilters.tag) params.set("tag", appliedFilters.tag);
-    if (appliedFilters.merchant) params.set("merchant", appliedFilters.merchant);
+    appliedFilters.categories.forEach((category) => params.append("category", category));
+    appliedFilters.tags.forEach((tag) => params.append("tag", tag));
+    appliedFilters.merchants.forEach((merchant) => params.append("merchant", merchant));
 
     const range = appliedFilters.preset === "custom"
       ? { start: appliedFilters.start, end: appliedFilters.end }
@@ -157,7 +161,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg bg-white p-6 shadow space-y-3">
+      <section className="space-y-3 rounded-lg bg-white p-6 shadow">
         <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
         <div className="grid gap-2 md:grid-cols-3">
           <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
@@ -168,16 +172,13 @@ export default function DashboardPage() {
             <option value="">All users</option>
             {meta.members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
           </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))}>
-            <option value="">All categories</option>
+          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.categories} onChange={(e) => setFilters((p) => ({ ...p, categories: getMultiValues(e) }))}>
             {meta.categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.tag} onChange={(e) => setFilters((p) => ({ ...p, tag: e.target.value }))}>
-            <option value="">All tags</option>
+          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.tags} onChange={(e) => setFilters((p) => ({ ...p, tags: getMultiValues(e) }))}>
             {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.merchant} onChange={(e) => setFilters((p) => ({ ...p, merchant: e.target.value }))}>
-            <option value="">All merchants</option>
+          <select multiple className="h-28 rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.merchants} onChange={(e) => setFilters((p) => ({ ...p, merchants: getMultiValues(e) }))}>
             {meta.merchants.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
@@ -196,6 +197,7 @@ export default function DashboardPage() {
             </>
           )}
         </div>
+        <p className="text-xs text-slate-500">Tip: hold Ctrl (Windows/Linux) or Cmd (Mac) to select multiple categories, tags, and merchants.</p>
         <button type="button" onClick={applyFilters} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Apply Filters</button>
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>

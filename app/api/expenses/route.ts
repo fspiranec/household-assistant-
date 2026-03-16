@@ -8,13 +8,21 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   let query = auth.supabase.from("expenses").select("*").order("date", { ascending: false });
 
-  if (params.get("household_id")) query = query.eq("household_id", params.get("household_id")!);
-  if (params.get("created_by")) query = query.eq("created_by", params.get("created_by")!);
-  if (params.get("merchant")) query = query.ilike("merchant", params.get("merchant")!);
-  if (params.get("start")) query = query.gte("date", params.get("start")!);
-  if (params.get("end")) query = query.lte("date", params.get("end")!);
-  if (params.get("category")) query = query.eq("category", params.get("category")!);
-  if (params.get("tag")) query = query.contains("tags", [params.get("tag")]);
+  const householdId = params.get("household_id");
+  const createdBy = params.get("created_by");
+  const merchants = params.getAll("merchant").filter(Boolean);
+  const categories = params.getAll("category").filter(Boolean);
+  const tags = params.getAll("tag").filter(Boolean);
+  const start = params.get("start");
+  const end = params.get("end");
+
+  if (householdId) query = query.eq("household_id", householdId);
+  if (createdBy) query = query.eq("created_by", createdBy);
+  if (merchants.length > 0) query = query.in("merchant", merchants);
+  if (start) query = query.gte("date", start);
+  if (end) query = query.lte("date", end);
+  if (categories.length > 0) query = query.in("category", categories);
+  if (tags.length > 0) query = query.overlaps("tags", tags);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
