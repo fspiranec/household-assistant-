@@ -71,6 +71,8 @@ supabase/
 - Create storage bucket: `expense-files`.
 - Configure Google OAuth in Supabase Auth provider settings.
 - Configure SMTP in Supabase Auth for transactional invite/recovery emails.
+- Add this redirect URL in Supabase Auth settings: `http://localhost:3000/auth/callback` (and your production `/auth/callback` URL).
+- If you want to skip email confirmation while testing, in Supabase Dashboard go to **Authentication → Providers → Email** and turn off **Confirm email**.
 - This project expects `public.users` to mirror `auth.users`. The migration now creates `handle_new_auth_user` trigger and also backfills existing auth users.
 - If you already have tables and see `relation "users" already exists`, do **not** re-run `001_init.sql`; run `supabase/migrations/002_repair_existing_project.sql` instead.
 - `002_repair_existing_project.sql` is safe for existing projects: it re-creates trigger/policies idempotently, re-backfills `public.users`, and re-applies grants/RLS.

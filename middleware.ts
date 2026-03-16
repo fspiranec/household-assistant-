@@ -2,6 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname === "/") {
+    const callbackUrl = new URL("/auth/callback", request.url);
+    callbackUrl.searchParams.set("code", code);
+    return NextResponse.redirect(callbackUrl);
+  }
+
   const response = NextResponse.next({
     request: {
       headers: request.headers
@@ -32,7 +39,7 @@ export async function middleware(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser();
 
-  const publicAuthRoutes = new Set(["/login", "/register", "/recover"]);
+  const publicAuthRoutes = new Set(["/login", "/register", "/recover", "/auth/callback"]);
   const isPublicAuthRoute = publicAuthRoutes.has(request.nextUrl.pathname);
 
   if (!user && !isPublicAuthRoute) {

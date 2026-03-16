@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase.auth.signUp({
     email: body.email,
     password: body.password,
-    options: { data: { username: body.username, first_name: body.first_name, last_name: body.last_name } }
+    options: {
+      data: { username: body.username, first_name: body.first_name, last_name: body.last_name },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+    }
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
