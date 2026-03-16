@@ -14,6 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="mx-auto flex max-w-6xl items-center justify-between p-4">
             <Link href="/dashboard" className="font-semibold">Household Finance</Link>
             <div className="flex gap-4 text-sm">
+              <Link href="/login">Login</Link>
+              <Link href="/register">Register</Link>
               <Link href="/dashboard">Dashboard</Link>
               <Link href="/expenses">Expenses</Link>
               <Link href="/households">Households</Link>

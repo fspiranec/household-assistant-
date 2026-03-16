@@ -1,9 +1,11 @@
 "use client";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -13,6 +15,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
     const data = await res.json();
     setMessage(data.message || (res.ok ? "Logged in" : "Login failed"));
+    if (res.ok) router.push("/dashboard");
   };
 
   return (
