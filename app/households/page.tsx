@@ -9,24 +9,55 @@ export default function HouseholdsPage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [name, setName] = useState("");
   const [invite, setInvite] = useState({ household_id: "", email: "" });
+  const [message, setMessage] = useState("");
 
   const load = async () => {
     const res = await fetch("/api/households");
-    if (res.ok) setHouseholds(await res.json());
+    if (res.ok) {
+      setHouseholds(await res.json());
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    setMessage(data.error || "Failed to load households");
   };
 
   useEffect(() => { load(); }, []);
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch("/api/households", { method: "POST", body: JSON.stringify({ name }) });
+    const res = await fetch("/api/households", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage(data.error || "Failed to create household");
+      return;
+    }
+
+    setMessage("Household created successfully");
     setName("");
     load();
   };
 
   const sendInvite = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch("/api/households/invite", { method: "POST", body: JSON.stringify(invite) });
+    const res = await fetch("/api/households/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(invite)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage(data.error || "Failed to send invite");
+      return;
+    }
+
+    setMessage("Invite sent");
     setInvite({ household_id: "", email: "" });
   };
 
@@ -47,6 +78,7 @@ export default function HouseholdsPage() {
         <Input placeholder="Email" type="email" value={invite.email} onChange={(e) => setInvite((p) => ({ ...p, email: e.target.value }))} required />
         <Button type="submit">Send Invite</Button>
       </form>
+      {message && <p className="text-sm text-slate-600">{message}</p>}
     </div>
   );
 }

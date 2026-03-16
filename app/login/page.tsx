@@ -13,7 +13,11 @@ export default function LoginPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
     const data = await res.json();
     setMessage(data.message || data.error || (res.ok ? "Logged in" : "Login failed"));
     if (res.ok) {

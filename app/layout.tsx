@@ -22,8 +22,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <nav className="mx-auto flex max-w-6xl items-center justify-between p-4">
             <Link href={isLoggedIn ? "/dashboard" : "/login"} className="font-semibold">Household Finance</Link>
             <div className="flex gap-4 text-sm">
-              <Link href="/login">Login</Link>
-              <Link href="/register">Register</Link>
+              {!isLoggedIn && (
+                <>
+                  <Link href="/login">Login</Link>
+                  <Link href="/register">Register</Link>
+                </>
+              )}
               {isLoggedIn && (
                 <>
                   <Link href="/dashboard">Dashboard</Link>

@@ -27,9 +27,13 @@ export async function POST(req: NextRequest) {
   if ("error" in auth) return auth.error;
 
   const { name } = await req.json();
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return NextResponse.json({ error: "Household name is required" }, { status: 400 });
+  }
+
   const { data: household, error } = await auth.supabase
     .from("households")
-    .insert({ name, created_by: auth.user.id })
+    .insert({ name: name.trim(), created_by: auth.user.id })
     .select("id,name")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
