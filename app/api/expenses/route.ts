@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   let query = auth.supabase.from("expenses").select("*").order("date", { ascending: false });
 
+  if (params.get("household_id")) query = query.eq("household_id", params.get("household_id")!);
   if (params.get("start")) query = query.gte("date", params.get("start")!);
   if (params.get("end")) query = query.lte("date", params.get("end")!);
   if (params.get("category")) query = query.eq("category", params.get("category")!);
