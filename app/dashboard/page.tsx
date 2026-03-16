@@ -1,10 +1,11 @@
 "use client";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
 import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
 
 type Preset = "today" | "day" | "week" | "month" | "year" | "custom";
+type MultiFilterKey = "created_by" | "categories" | "tags" | "merchants";
 
 type FilterState = {
   household_id: string;
@@ -58,10 +59,6 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
   return { start: "", end: "" };
 }
 
-function getMultiValues(event: ChangeEvent<HTMLSelectElement>) {
-  return Array.from(event.target.selectedOptions).map((option) => String(option.value));
-}
-
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -79,6 +76,25 @@ export default function DashboardPage() {
     day: formatDate(new Date())
   });
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(filters);
+
+  const allOptions = {
+    created_by: meta.members.map((m) => m.id),
+    categories: meta.categories,
+    tags: meta.tags,
+    merchants: meta.merchants
+  };
+
+  const setAll = (key: MultiFilterKey) => setFilters((p) => ({ ...p, [key]: allOptions[key] }));
+  const setNone = (key: MultiFilterKey) => setFilters((p) => ({ ...p, [key]: [] }));
+  const setOnly = (key: MultiFilterKey, value: string) => setFilters((p) => ({ ...p, [key]: [value] }));
+  const toggleValue = (key: MultiFilterKey, value: string) => {
+    setFilters((p) => ({
+      ...p,
+      [key]: p[key].includes(value)
+        ? p[key].filter((v) => v !== value)
+        : [...p[key], value]
+    }));
+  };
 
   useEffect(() => {
     fetch("/api/households").then(async (res) => {
@@ -183,13 +199,48 @@ export default function DashboardPage() {
     [expenses, meta.members]
   );
 
+  const renderCheckboxGroup = (
+    key: MultiFilterKey,
+    label: string,
+    options: { value: string; text: string }[]
+  ) => (
+    <div className="flex min-w-[220px] flex-col gap-1 rounded-md border border-slate-200 p-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-700">{label}</p>
+        <span className="text-[11px] text-slate-500">{filters[key].length}/{options.length}</span>
+      </div>
+      <div className="flex gap-1 text-[11px]">
+        <button type="button" className="rounded border px-2 py-0.5" onClick={() => setAll(key)}>Select all</button>
+        <button type="button" className="rounded border px-2 py-0.5" onClick={() => setNone(key)}>Unselect all</button>
+      </div>
+      <div className="max-h-24 space-y-1 overflow-y-auto pt-1">
+        {options.map((option) => (
+          <div key={option.value} className="flex items-center justify-between gap-2 text-xs">
+            <label className="flex items-center gap-2 truncate">
+              <input
+                type="checkbox"
+                checked={filters[key].includes(option.value)}
+                onChange={() => toggleValue(key, option.value)}
+              />
+              <span className="truncate">{option.text}</span>
+            </label>
+            <button type="button" className="rounded border px-1.5 py-0.5 text-[11px]" onClick={() => setOnly(key, option.value)}>
+              Only
+            </button>
+          </div>
+        ))}
+        {options.length === 0 && <p className="text-xs text-slate-400">No options</p>}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg bg-white p-6 shadow">
         <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
         <h2 className="text-sm font-medium text-slate-700">Filters</h2>
         <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max items-end gap-2">
+          <div className="flex min-w-max items-start gap-2">
             <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
               Household
               <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
@@ -197,30 +248,12 @@ export default function DashboardPage() {
                 {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </label>
-            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Users
-              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.created_by} onChange={(e) => setFilters((p) => ({ ...p, created_by: getMultiValues(e) }))}>
-                {meta.members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
-              </select>
-            </label>
-            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Categories
-              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.categories} onChange={(e) => setFilters((p) => ({ ...p, categories: getMultiValues(e) }))}>
-                {meta.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Tags
-              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.tags} onChange={(e) => setFilters((p) => ({ ...p, tags: getMultiValues(e) }))}>
-                {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
-            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Merchants
-              <select multiple size={1} className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.merchants} onChange={(e) => setFilters((p) => ({ ...p, merchants: getMultiValues(e) }))}>
-                {meta.merchants.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </label>
+
+            {renderCheckboxGroup("created_by", "Users", meta.members.map((m) => ({ value: m.id, text: m.display_name })))}
+            {renderCheckboxGroup("categories", "Categories", meta.categories.map((c) => ({ value: c, text: c })))}
+            {renderCheckboxGroup("tags", "Tags", meta.tags.map((t) => ({ value: t, text: t })))}
+            {renderCheckboxGroup("merchants", "Merchants", meta.merchants.map((m) => ({ value: m, text: m })))}
+
             <label className="flex min-w-[130px] flex-col gap-1 text-xs font-medium text-slate-700">
               Time frame
               <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
@@ -262,7 +295,7 @@ export default function DashboardPage() {
         <div>
           <button type="button" onClick={applyFilters} className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
         </div>
-        <p className="text-xs text-slate-500">All options are pre-selected by default. Remove selection to exclude those users/tags/categories/merchants. For multi-select, hold Ctrl (Windows/Linux) or Cmd (Mac).</p>
+        <p className="text-xs text-slate-500">Use Select all / Unselect all for each group. Use Only on a row to keep just that option and unselect others.</p>
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
 
