@@ -14,7 +14,11 @@ export default function HouseholdsPage() {
   const load = async () => {
     const res = await fetch("/api/households");
     if (res.ok) {
-      setHouseholds(await res.json());
+      const data = (await res.json()) as Household[];
+      setHouseholds(data);
+      if (data.length > 0) {
+        setInvite((p) => ({ ...p, household_id: p.household_id || data[0].id }));
+      }
       return;
     }
 
@@ -22,7 +26,9 @@ export default function HouseholdsPage() {
     setMessage(data.error || "Failed to load households");
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
@@ -58,7 +64,7 @@ export default function HouseholdsPage() {
     }
 
     setMessage("Invite sent");
-    setInvite({ household_id: "", email: "" });
+    setInvite((p) => ({ ...p, email: "" }));
   };
 
   return (
@@ -74,9 +80,20 @@ export default function HouseholdsPage() {
       </form>
       <form className="rounded-lg bg-white p-6 shadow space-y-3" onSubmit={sendInvite}>
         <h2 className="font-semibold">Invite Member</h2>
-        <Input placeholder="Household ID" value={invite.household_id} onChange={(e) => setInvite((p) => ({ ...p, household_id: e.target.value }))} required />
+        <label className="block text-sm">
+          Household
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={invite.household_id}
+            onChange={(e) => setInvite((p) => ({ ...p, household_id: e.target.value }))}
+            required
+          >
+            {households.length === 0 && <option value="">No households found</option>}
+            {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+        </label>
         <Input placeholder="Email" type="email" value={invite.email} onChange={(e) => setInvite((p) => ({ ...p, email: e.target.value }))} required />
-        <Button type="submit">Send Invite</Button>
+        <Button type="submit" disabled={!invite.household_id}>Send Invite</Button>
       </form>
       {message && <p className="text-sm text-slate-600">{message}</p>}
     </div>
