@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/helpers";
+import { HouseholdMemberHouseholdRow } from "@/types";
 
 export async function GET() {
   const auth = await requireUser();
@@ -11,7 +12,9 @@ export async function GET() {
     .eq("user_id", auth.user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data.map((r: any) => r.households));
+
+  const rows = (data ?? []) as HouseholdMemberHouseholdRow[];
+  return NextResponse.json(rows.flatMap((r) => (r.households ? [r.households] : [])));
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +29,9 @@ export async function POST(req: NextRequest) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await auth.supabase.from("household_members").insert({ household_id: household.id, user_id: auth.user.id, role: "owner" });
+  await auth.supabase
+    .from("household_members")
+    .insert({ household_id: household.id, user_id: auth.user.id, role: "owner" });
 
   return NextResponse.json(household, { status: 201 });
 }
