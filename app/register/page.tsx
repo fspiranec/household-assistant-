@@ -1,17 +1,25 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/dashboard";
+  const loginHref = useMemo(() => `/login?redirect=${encodeURIComponent(redirect)}`, [redirect]);
   const [form, setForm] = useState({ username: "", first_name: "", last_name: "", email: "", password: "" });
   const [message, setMessage] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/auth/register", { method: "POST", body: JSON.stringify(form) });
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form)
+    });
     const data = await res.json();
-    setMessage(data.message || (res.ok ? "Registered" : "Failed"));
+    setMessage(data.message || data.error || (res.ok ? "Registered" : "Failed"));
   };
 
   return (
@@ -31,6 +39,9 @@ export default function RegisterPage() {
         <Button type="submit">Register</Button>
       </form>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
+      <p className="mt-4 text-sm text-slate-600">
+        Already have an account? <a href={loginHref} className="text-blue-600 hover:underline">Log in</a>
+      </p>
     </section>
   );
 }

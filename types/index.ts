@@ -35,9 +35,18 @@ export type ExpenseDetail = Expense & {
   expense_files?: ExpenseFile[];
 };
 
+export type HouseholdMember = {
+  id: string;
+  role: string;
+  display_name: string;
+  email: string;
+};
+
 export type Household = {
   id: string;
   name: string;
+  current_user_role?: string | null;
+  members?: HouseholdMember[];
 };
 
 export type ExpensesResponse = {
