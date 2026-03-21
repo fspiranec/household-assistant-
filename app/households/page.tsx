@@ -22,6 +22,7 @@ export default function HouseholdsPage() {
   const [name, setName] = useState("");
   const [invite, setInvite] = useState({ household_id: "", email: "" });
   const [message, setMessage] = useState("");
+  const [shareLink, setShareLink] = useState("");
 
   const load = async () => {
     const res = await fetch("/api/households");
@@ -75,8 +76,26 @@ export default function HouseholdsPage() {
       return;
     }
 
-    setMessage("Invite sent");
+    setMessage(data.message || "Invite sent");
+    setShareLink(data.join_link || "");
     setInvite((p) => ({ ...p, email: "" }));
+  };
+
+  const generateShareLink = async (household_id: string) => {
+    const res = await fetch("/api/households/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ household_id })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage(data.error || "Failed to generate share link");
+      return;
+    }
+
+    setShareLink(data.join_link || "");
+    setMessage(data.message || "Share link created");
   };
 
   return (
@@ -109,6 +128,12 @@ export default function HouseholdsPage() {
                       {isOwner ? `${household.members.length} member${household.members.length === 1 ? "" : "s"}` : "Members visible to owner"}
                     </span>
                   </div>
+
+                  {isOwner ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <Button type="button" onClick={() => generateShareLink(household.id)}>Generate Share Link</Button>
+                    </div>
+                  ) : null}
 
                   {isOwner ? (
                     household.members.length > 0 ? (
@@ -160,6 +185,12 @@ export default function HouseholdsPage() {
         <Button type="submit" disabled={!invite.household_id}>Send Invite</Button>
       </form>
       {message && <p className="text-sm text-slate-600">{message}</p>}
+      {shareLink && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <p className="font-medium text-slate-900">Share this invite link</p>
+          <p className="mt-2 break-all">{shareLink}</p>
+        </div>
+      )}
     </div>
   );
 }

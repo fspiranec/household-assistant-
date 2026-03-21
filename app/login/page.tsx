@@ -1,12 +1,15 @@
 "use client";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/dashboard";
+  const registerHref = useMemo(() => `/register?redirect=${encodeURIComponent(redirect)}`, [redirect]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -21,7 +24,7 @@ export default function LoginPage() {
     const data = await res.json();
     setMessage(data.message || data.error || (res.ok ? "Logged in" : "Login failed"));
     if (res.ok) {
-      router.replace("/dashboard");
+      router.replace(redirect);
       router.refresh();
     }
   };
@@ -35,7 +38,7 @@ export default function LoginPage() {
         <Button type="submit">Login</Button>
       </form>
       <div className="mt-4 flex gap-4 text-sm">
-        <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
+        <Link href={registerHref} className="text-blue-600 hover:underline">Register</Link>
         <Link href="/recover" className="text-blue-600 hover:underline">Forgot password?</Link>
       </div>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
