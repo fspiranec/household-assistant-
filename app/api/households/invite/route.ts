@@ -6,6 +6,19 @@ function getPlaceholderEmail(token: string) {
   return `share-link+${token}@household.local`;
 }
 
+function getAppOrigin(req: NextRequest) {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured && !configured.includes("localhost")) return configured.replace(/\/$/, "");
+
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return req.nextUrl.origin;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
@@ -25,8 +38,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  const joinLink = `${getAppOrigin(req)}/invite?token=${token}`;
+
   return NextResponse.json({
     message: normalizedEmail ? "Invite created" : "Share link created",
-    join_link: `${process.env.NEXT_PUBLIC_APP_URL}/invite?token=${token}`
+    join_link: joinLink,
+    mailto_link: normalizedEmail
+      ? `mailto:${normalizedEmail}?subject=${encodeURIComponent("Join my household")}&body=${encodeURIComponent(`Use this link to join my household: ${joinLink}`)}`
+      : null
   });
 }
