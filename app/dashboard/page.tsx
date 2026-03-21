@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
+import { FlexibleAnalyticsChart } from "@/components/charts/FlexibleAnalyticsChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
 import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
 
 type Preset = "today" | "day" | "week" | "month" | "year" | "custom";
 type MultiFilterKey = "created_by" | "categories" | "tags" | "merchants";
+type ChartMetric = "total" | "count" | "average";
+type ChartDimension = "date" | "category" | "merchant" | "person" | "tag";
+type ChartType = "bar" | "line" | "area";
 
 type FilterState = {
   household_id: string;
@@ -59,6 +62,24 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
   return { start: "", end: "" };
 }
 
+function metricLabel(metric: ChartMetric) {
+  if (metric === "count") return "Expense count";
+  if (metric === "average") return "Average spend";
+  return "Total spend";
+}
+
+function dimensionLabel(dimension: ChartDimension) {
+  if (dimension === "date") return "Date";
+  if (dimension === "merchant") return "Merchant";
+  if (dimension === "person") return "Person";
+  if (dimension === "tag") return "Tag";
+  return "Category";
+}
+
+function chartDescription(dimension: ChartDimension, metric: ChartMetric) {
+  return `${metricLabel(metric)} by ${dimensionLabel(dimension).toLowerCase()}`;
+}
+
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -76,6 +97,9 @@ export default function DashboardPage() {
     day: formatDate(new Date())
   });
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(filters);
+  const [chartMetric, setChartMetric] = useState<ChartMetric>("total");
+  const [chartDimension, setChartDimension] = useState<ChartDimension>("date");
+  const [chartType, setChartType] = useState<ChartType>("bar");
 
   const allOptions = {
     created_by: meta.members.map((m) => m.id),
@@ -169,15 +193,55 @@ export default function DashboardPage() {
       acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
       return acc;
     }, {})
-  ).map(([category, categoryTotal]) => ({ category, total: categoryTotal }));
+  )
+    .map(([category, categoryTotal]) => ({ category, total: categoryTotal }))
+    .sort((a, b) => b.total - a.total);
 
-  const byMonth = Object.entries(
-    expenses.reduce((acc: Record<string, number>, e) => {
-      const month = new Date(e.date).toLocaleDateString(undefined, { month: "short" });
-      acc[month] = (acc[month] || 0) + Number(e.amount);
-      return acc;
-    }, {})
-  ).map(([month, monthTotal]) => ({ month, total: monthTotal }));
+  const analyticsChartData = useMemo(() => {
+    const grouped = new Map<string, { label: string; total: number; count: number; sortKey: string }>();
+
+    expenses.forEach((expense) => {
+      const amount = Number(expense.amount);
+      const tags = expense.tags && expense.tags.length > 0 ? expense.tags : ["Untagged"];
+      const buckets = chartDimension === "tag"
+        ? tags.map((tag) => ({ key: tag, label: tag, sortKey: tag.toLowerCase() }))
+        : (() => {
+            if (chartDimension === "date") {
+              const label = expense.date;
+              return [{ key: label, label, sortKey: label }];
+            }
+            if (chartDimension === "merchant") {
+              const label = expense.merchant || "Unknown merchant";
+              return [{ key: label, label, sortKey: label.toLowerCase() }];
+            }
+            if (chartDimension === "person") {
+              const label = meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by;
+              return [{ key: expense.created_by, label, sortKey: label.toLowerCase() }];
+            }
+            const label = expense.category || "Uncategorized";
+            return [{ key: label, label, sortKey: label.toLowerCase() }];
+          })();
+
+      buckets.forEach((bucket) => {
+        const current = grouped.get(bucket.key) ?? { label: bucket.label, total: 0, count: 0, sortKey: bucket.sortKey };
+        current.total += amount;
+        current.count += 1;
+        grouped.set(bucket.key, current);
+      });
+    });
+
+    const rows = Array.from(grouped.values())
+      .sort((a, b) => (chartDimension === "date" ? a.sortKey.localeCompare(b.sortKey) : b.total - a.total || a.sortKey.localeCompare(b.sortKey)))
+      .map((row) => ({
+        label: row.label,
+        total: Number(row.total.toFixed(2)),
+        count: row.count,
+        average: Number((row.total / row.count).toFixed(2))
+      }));
+
+    if (chartDimension === "date") return rows;
+    return rows.slice(0, 12);
+  }, [chartDimension, expenses, meta.members]);
 
   const byPerson = useMemo(
     () => Object.entries(
@@ -299,14 +363,58 @@ export default function DashboardPage() {
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="font-semibold">Detailed analytics</h2>
+              <p className="text-sm text-slate-500">Choose what to plot so the dashboard works for trends and breakdowns.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Show
+                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={chartMetric} onChange={(e) => setChartMetric(e.target.value as ChartMetric)}>
+                  <option value="total">Total spend</option>
+                  <option value="count">Expense count</option>
+                  <option value="average">Average spend</option>
+                </select>
+              </label>
+              <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Group by
+                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={chartDimension} onChange={(e) => setChartDimension(e.target.value as ChartDimension)}>
+                  <option value="date">Date</option>
+                  <option value="category">Category</option>
+                  <option value="merchant">Merchant</option>
+                  <option value="person">Person</option>
+                  <option value="tag">Tag</option>
+                </select>
+              </label>
+              <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Chart type
+                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={chartType} onChange={(e) => setChartType(e.target.value as ChartType)}>
+                  <option value="bar">Bar</option>
+                  <option value="line">Line</option>
+                  <option value="area">Area</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <FlexibleAnalyticsChart
+            data={analyticsChartData}
+            xKey="label"
+            yKey={chartMetric}
+            chartType={chartType}
+            yAxisLabel={metricLabel(chartMetric)}
+            emptyText="No expenses match this filter."
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <p>{chartDescription(chartDimension, chartMetric)}.</p>
+            {chartDimension !== "date" && <p>Showing the top 12 groups to keep the chart readable.</p>}
+          </div>
+        </div>
         <div className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-2 font-semibold">Spend by Category</h2>
           <SpendByCategoryChart data={byCategory} />
-        </div>
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 font-semibold">Trend</h2>
-          <MonthlySpendChart data={byMonth} />
         </div>
       </section>
 

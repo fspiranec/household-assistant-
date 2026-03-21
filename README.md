@@ -32,7 +32,7 @@ app/
   recover/page.tsx
   profile/page.tsx
 components/
-  charts/{MonthlySpendChart,SpendByCategoryChart}.tsx
+  charts/{FlexibleAnalyticsChart,SpendByCategoryChart}.tsx
   ui/{Button,Input}.tsx
 lib/
   api/{helpers,export}.ts
