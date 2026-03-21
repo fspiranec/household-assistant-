@@ -91,7 +91,7 @@ export default function ExpensesPage() {
           value={filters.exclude_private ? "yes" : "no"}
           onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "yes" }))}
         >
-          <option value="no">Include private</option>
+          <option value="no">Include my private</option>
           <option value="yes">Exclude private</option>
         </select>
       </div>
@@ -102,6 +102,7 @@ export default function ExpensesPage() {
               <th className="p-3 text-left">Date</th>
               <th>Merchant</th>
               <th>Category</th>
+              <th>Created By</th>
               <th>Privacy</th>
               <th>Amount</th>
             </tr>
@@ -116,6 +117,7 @@ export default function ExpensesPage() {
                 </td>
                 <td>{row.merchant}</td>
                 <td>{row.category}</td>
+                <td>{row.created_by_name ?? row.created_by}</td>
                 <td>{row.is_private ? "Private" : "Household"}</td>
                 <td>${Number(row.amount).toFixed(2)}</td>
               </tr>

@@ -200,7 +200,7 @@ export default function DashboardPage() {
         const key = expense.merchant || "Unknown merchant";
         acc[key] = (acc[key] || 0) + Number(expense.amount);
       } else if (breakdownDimension === "user") {
-        const memberName = meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by;
+        const memberName = expense.created_by_name || meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by;
         acc[memberName] = (acc[memberName] || 0) + Number(expense.amount);
       } else {
         const tags = expense.tags && expense.tags.length > 0 ? expense.tags : ["Untagged"];
@@ -288,7 +288,7 @@ export default function DashboardPage() {
     )
       .map(([userId, userStats]) => ({
         userId,
-        name: meta.members.find((m) => m.id === userId)?.display_name || userId,
+        name: expenses.find((expense) => expense.created_by === userId)?.created_by_name || meta.members.find((m) => m.id === userId)?.display_name || userId,
         ...userStats
       }))
       .sort((a, b) => b.total - a.total),
@@ -358,139 +358,200 @@ export default function DashboardPage() {
           <div className="flex min-w-max items-start gap-2">
             <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
               Household
-              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.household_id} onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}>
-                {households.length === 0 && <option value="">No households found</option>}
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={filters.household_id}
+                onChange={(e) => setFilters((p) => ({ ...p, household_id: e.target.value }))}
+              >
                 {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </label>
-
-            {renderCheckboxGroup("created_by", "Users", meta.members.map((m) => ({ value: m.id, text: m.display_name })))}
-            {renderCheckboxGroup("categories", "Categories", meta.categories.map((c) => ({ value: c, text: c })))}
-            {renderCheckboxGroup("tags", "Tags", meta.tags.map((t) => ({ value: t, text: t })))}
-            {renderCheckboxGroup("merchants", "Merchants", meta.merchants.map((m) => ({ value: m, text: m })))}
-
-            <label className="flex min-w-[130px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Time frame
-              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.preset} onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}>
+            <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Quick range
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={filters.preset}
+                onChange={(e) => setFilters((p) => ({ ...p, preset: e.target.value as Preset }))}
+              >
                 <option value="today">Today</option>
                 <option value="day">Specific day</option>
                 <option value="week">This week</option>
                 <option value="month">This month</option>
                 <option value="year">This year</option>
-                <option value="custom">Custom range</option>
+                <option value="custom">Custom</option>
               </select>
             </label>
             {filters.preset === "day" && (
-              <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+              <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
                 Day
-                <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.day} onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))} />
+                <input
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  type="date"
+                  value={filters.day}
+                  onChange={(e) => setFilters((p) => ({ ...p, day: e.target.value }))}
+                />
               </label>
             )}
             {filters.preset === "custom" && (
               <>
-                <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
                   Start
-                  <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.start} onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))} />
+                  <input
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    type="date"
+                    value={filters.start}
+                    onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))}
+                  />
                 </label>
-                <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+                <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
                   End
-                  <input type="date" className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.end} onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))} />
+                  <input
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    type="date"
+                    value={filters.end}
+                    onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))}
+                  />
                 </label>
               </>
             )}
-            <label className="flex min-w-[130px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Exclude private
-              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={filters.exclude_private ? "yes" : "no"} onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "yes" }))}>
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
+            <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Private expenses
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={filters.exclude_private ? "exclude" : "include"}
+                onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "exclude" }))}
+              >
+                <option value="include">Include private</option>
+                <option value="exclude">Exclude private</option>
               </select>
             </label>
+            {renderCheckboxGroup(
+              "created_by",
+              "Users",
+              meta.members.map((member) => ({ value: member.id, text: member.display_name }))
+            )}
+            {renderCheckboxGroup(
+              "categories",
+              "Categories",
+              meta.categories.map((category) => ({ value: category, text: category }))
+            )}
+            {renderCheckboxGroup(
+              "tags",
+              "Tags",
+              meta.tags.map((tag) => ({ value: tag, text: tag }))
+            )}
+            {renderCheckboxGroup(
+              "merchants",
+              "Merchants",
+              meta.merchants.map((merchant) => ({ value: merchant, text: merchant }))
+            )}
           </div>
         </div>
-        <div>
-          <button type="button" onClick={applyFilters} className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={applyFilters}>
+            Apply filters
+          </button>
+          <p className="self-center text-sm text-slate-500">Showing {expenses.length} expenses totaling ${total.toFixed(2)}</p>
         </div>
-        <p className="text-xs text-slate-500">Use Select all / Unselect all for each group. Use Only on a row to keep just that option and unselect others.</p>
-        <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-3 rounded-lg bg-white p-6 shadow">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="font-semibold">{breakdownTitles[breakdownDimension]}</h2>
-              <p className="text-sm text-slate-500">Switch the breakdown to compare where the money goes.</p>
-            </div>
-            <label className="flex min-w-[180px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Show breakdown for
-              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={breakdownDimension} onChange={(e) => setBreakdownDimension(e.target.value as BreakdownDimension)}>
-                <option value="category">Categories</option>
-                <option value="merchant">Merchants</option>
-                <option value="user">Users</option>
-                <option value="tag">Tags</option>
-              </select>
-            </label>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">{breakdownTitles[breakdownDimension]}</h2>
+            <select
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={breakdownDimension}
+              onChange={(e) => setBreakdownDimension(e.target.value as BreakdownDimension)}
+            >
+              <option value="category">Category</option>
+              <option value="merchant">Merchant</option>
+              <option value="user">User</option>
+              <option value="tag">Tag</option>
+            </select>
           </div>
           <SpendByCategoryChart data={breakdownChart} />
         </div>
-        <div className="space-y-3 rounded-lg bg-white p-6 shadow">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="font-semibold">Trend</h2>
-              <p className="text-sm text-slate-500">Choose both the time grouping and what metric to plot for more detail.</p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
-                Group by
-                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={trendBucket} onChange={(e) => setTrendBucket(e.target.value as TrendBucket)}>
-                  <option value="day">Day</option>
-                  <option value="week">Week</option>
-                  <option value="month">Month</option>
-                </select>
-              </label>
-              <label className="flex min-w-[180px] flex-col gap-1 text-xs font-medium text-slate-700">
-                Plot
-                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={trendMetric} onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}>
-                  <option value="total">Total spend</option>
-                  <option value="count">Expense count</option>
-                  <option value="average">Average expense</option>
-                </select>
-              </label>
+        <div className="rounded-lg bg-white p-6 shadow">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Trend: {trendMetricLabel[trendMetric]}</h2>
+            <div className="flex gap-2">
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={trendBucket}
+                onChange={(e) => setTrendBucket(e.target.value as TrendBucket)}
+              >
+                <option value="day">Daily</option>
+                <option value="week">Weekly</option>
+                <option value="month">Monthly</option>
+              </select>
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={trendMetric}
+                onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}
+              >
+                <option value="total">Total</option>
+                <option value="count">Count</option>
+                <option value="average">Average</option>
+              </select>
             </div>
           </div>
-          <MonthlySpendChart
-            data={trendData}
-            seriesLabel={trendMetricLabel[trendMetric]}
-            valueFormat={trendMetricFormat[trendMetric]}
-          />
+          <MonthlySpendChart data={trendData} valueFormat={trendMetricFormat[trendMetric]} />
         </div>
       </section>
 
-      <section className="rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-3 font-semibold">People Expense Statistics (selected household)</h2>
-        <table className="w-full text-sm">
-          <thead className="border-b bg-slate-50">
-            <tr>
-              <th className="p-2 text-left">User</th>
-              <th className="p-2 text-right"># Expenses</th>
-              <th className="p-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byPerson.map((row) => (
-              <tr key={row.userId} className="border-b">
-                <td className="p-2">{row.name}</td>
-                <td className="p-2 text-right">{row.count}</td>
-                <td className="p-2 text-right">${row.total.toFixed(2)}</td>
-              </tr>
+      <section className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold">Expenses included in filters</h2>
+          <p className="mt-1 text-sm text-slate-500">This list matches the exact expenses used for the charts and totals above.</p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="border-b bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Merchant</th>
+                  <th className="px-3 py-2 text-left">Category</th>
+                  <th className="px-3 py-2 text-left">Created by</th>
+                  <th className="px-3 py-2 text-left">Privacy</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((expense) => (
+                  <tr key={expense.id} className="border-b last:border-b-0">
+                    <td className="px-3 py-2">{expense.date}</td>
+                    <td className="px-3 py-2">{expense.merchant}</td>
+                    <td className="px-3 py-2">{expense.category}</td>
+                    <td className="px-3 py-2">{expense.created_by_name || meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by}</td>
+                    <td className="px-3 py-2">{expense.is_private ? "Private" : "Household"}</td>
+                    <td className="px-3 py-2 text-right font-medium">${Number(expense.amount).toFixed(2)}</td>
+                  </tr>
+                ))}
+                {expenses.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center text-slate-500">No expenses match the current filters.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold">By user</h2>
+          <div className="mt-4 space-y-3">
+            {byPerson.map((person) => (
+              <div key={person.userId} className="rounded-md border border-slate-200 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-slate-900">{person.name}</p>
+                  <p className="text-sm font-semibold text-slate-900">${person.total.toFixed(2)}</p>
+                </div>
+                <p className="mt-1 text-sm text-slate-500">{person.count} expenses</p>
+              </div>
             ))}
-            {byPerson.length === 0 && (
-              <tr>
-                <td className="p-2 text-slate-500" colSpan={3}>No expenses match this filter.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            {byPerson.length === 0 && <p className="text-sm text-slate-500">No expense data for this filter set.</p>}
+          </div>
+        </div>
       </section>
     </div>
   );
