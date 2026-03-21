@@ -2,6 +2,8 @@ export type Expense = {
   id: string;
   household_id: string;
   created_by: string;
+  created_by_name?: string;
+  can_edit?: boolean;
   amount: number;
   date: string;
   merchant: string;
@@ -35,9 +37,18 @@ export type ExpenseDetail = Expense & {
   expense_files?: ExpenseFile[];
 };
 
+export type HouseholdMember = {
+  id: string;
+  role: string;
+  display_name: string;
+  email: string;
+};
+
 export type Household = {
   id: string;
   name: string;
+  current_user_role?: string | null;
+  members?: HouseholdMember[];
 };
 
 export type ExpensesResponse = {

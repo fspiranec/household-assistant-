@@ -14,9 +14,37 @@ type ExpenseWriteBody = {
   is_private?: boolean;
 };
 
+type ExpenseRow = {
+  id: string;
+  household_id: string;
+  created_by: string;
+  amount: number;
+  date: string;
+  merchant: string;
+  category: string;
+  tags: string[] | null;
+  notes: string | null;
+  parsed_payload: Record<string, unknown> | null;
+  is_private: boolean;
+};
+
+type UserRow = {
+  id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
 function normalizeTags(tags: unknown) {
   const rawTags = Array.isArray(tags) ? tags : [];
   return [...new Set(rawTags.map((tag) => String(tag).trim()).filter(Boolean))];
+}
+
+function formatDisplayName(user: UserRow | undefined, fallback: string) {
+  if (!user) return fallback;
+  const fullName = `${user.first_name} ${user.last_name}`.trim();
+  return fullName || user.username || user.email || fallback;
 }
 
 async function upsertMetadata(
@@ -72,7 +100,28 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ data });
+
+  const expenses = (data ?? []) as ExpenseRow[];
+  const creatorIds = [...new Set(expenses.map((expense) => expense.created_by))];
+
+  let users: UserRow[] = [];
+  if (creatorIds.length > 0) {
+    const { data: usersData, error: usersError } = await auth.supabase
+      .from("users")
+      .select("id,username,first_name,last_name,email")
+      .in("id", creatorIds);
+
+    if (usersError) return NextResponse.json({ error: usersError.message }, { status: 400 });
+    users = (usersData ?? []) as UserRow[];
+  }
+
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  return NextResponse.json({
+    data: expenses.map((expense) => ({
+      ...expense,
+      created_by_name: formatDisplayName(userMap.get(expense.created_by), expense.created_by)
+    }))
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -104,5 +153,5 @@ export async function POST(req: NextRequest) {
   const metadataError = await upsertMetadata(auth.supabase, body.household_id, body.category, normalizedTags, auth.user.id);
   if (metadataError) return NextResponse.json({ error: metadataError.message }, { status: 400 });
 
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json({ ...data, created_by_name: auth.user.email ?? auth.user.id }, { status: 201 });
 }
