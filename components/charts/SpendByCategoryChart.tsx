@@ -11,7 +11,13 @@ export function SpendByCategoryChart({ data }: { data: { label: string; total: n
           <Pie data={data} dataKey="total" nameKey="name" outerRadius={120}>
             {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
           </Pie>
-          <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "Amount"]} />
+          <Tooltip
+            formatter={(value: number, _name, item) => {
+              const label = item?.payload?.name || item?.payload?.label || "Unknown";
+              return [`$${value.toFixed(2)}`, label];
+            }}
+            labelFormatter={(label) => `Slice: ${label}`}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>

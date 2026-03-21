@@ -343,6 +343,12 @@ export default function DashboardPage() {
     average: "Average expense"
   };
 
+  const trendMetricFormat: Record<TrendMetric, "currency" | "number"> = {
+    total: "currency",
+    count: "number",
+    average: "currency"
+  };
+
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg bg-white p-6 shadow">
@@ -452,7 +458,11 @@ export default function DashboardPage() {
               </label>
             </div>
           </div>
-          <MonthlySpendChart data={trendData} seriesLabel={trendMetricLabel[trendMetric]} />
+          <MonthlySpendChart
+            data={trendData}
+            seriesLabel={trendMetricLabel[trendMetric]}
+            valueFormat={trendMetricFormat[trendMetric]}
+          />
         </div>
       </section>
 
