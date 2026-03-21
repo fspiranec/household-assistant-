@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +40,7 @@ export default function RegisterPage() {
       </form>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
       <p className="mt-4 text-sm text-slate-600">
-        Already have an account? <Link href={loginHref} className="text-blue-600 hover:underline">Log in</Link>
+        Already have an account? <a href={loginHref} className="text-blue-600 hover:underline">Log in</a>
       </p>
     </section>
   );

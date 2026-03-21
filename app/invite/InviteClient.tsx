@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 export default function InviteClient() {
-  const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
   const redirectTarget = useMemo(() => token ? `/invite?token=${encodeURIComponent(token)}` : "/invite", [token]);
@@ -42,9 +40,8 @@ export default function InviteClient() {
     }
 
     setMessage(data.message || "Joined household.");
-    router.replace("/households");
-    router.refresh();
-  }, [router, token]);
+    window.location.assign("/households");
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -59,12 +56,12 @@ export default function InviteClient() {
 
       {needsLogin && (
         <div className="flex flex-wrap gap-3">
-          <Link href={`/login?redirect=${encodeURIComponent(redirectTarget)}`}>
+          <a href={`/login?redirect=${encodeURIComponent(redirectTarget)}`}>
             <Button type="button">Log In to Join</Button>
-          </Link>
-          <Link href={`/register?redirect=${encodeURIComponent(redirectTarget)}`}>
+          </a>
+          <a href={`/register?redirect=${encodeURIComponent(redirectTarget)}`}>
             <Button type="button" className="bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-100">Register</Button>
-          </Link>
+          </a>
         </div>
       )}
 
