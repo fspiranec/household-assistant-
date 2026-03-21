@@ -6,6 +6,9 @@ import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/typ
 
 type Preset = "today" | "day" | "week" | "month" | "year" | "custom";
 type MultiFilterKey = "created_by" | "categories" | "tags" | "merchants";
+type BreakdownDimension = "category" | "merchant" | "user" | "tag";
+type TrendBucket = "day" | "week" | "month";
+type TrendMetric = "total" | "count" | "average";
 
 type FilterState = {
   household_id: string;
@@ -59,6 +62,26 @@ function getPresetRange(preset: Preset, day: string): { start: string; end: stri
   return { start: "", end: "" };
 }
 
+function startOfWeek(date: Date) {
+  const copy = new Date(date);
+  const dayIndex = copy.getDay();
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  copy.setDate(copy.getDate() + mondayOffset);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function formatBucketLabel(date: Date, bucket: TrendBucket) {
+  if (bucket === "day") {
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  if (bucket === "week") {
+    const weekStart = startOfWeek(date);
+    return `Week of ${weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  }
+  return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -76,6 +99,9 @@ export default function DashboardPage() {
     day: formatDate(new Date())
   });
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(filters);
+  const [breakdownDimension, setBreakdownDimension] = useState<BreakdownDimension>("category");
+  const [trendBucket, setTrendBucket] = useState<TrendBucket>("day");
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("total");
 
   const allOptions = {
     created_by: meta.members.map((m) => m.id),
@@ -164,20 +190,90 @@ export default function DashboardPage() {
   const applyFilters = () => setAppliedFilters(filters);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const byCategory = Object.entries(
-    expenses.reduce((acc: Record<string, number>, e) => {
-      acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
-      return acc;
-    }, {})
-  ).map(([category, categoryTotal]) => ({ category, total: categoryTotal }));
 
-  const byMonth = Object.entries(
-    expenses.reduce((acc: Record<string, number>, e) => {
-      const month = new Date(e.date).toLocaleDateString(undefined, { month: "short" });
-      acc[month] = (acc[month] || 0) + Number(e.amount);
+  const breakdownChart = useMemo(() => {
+    const grouped = expenses.reduce((acc: Record<string, number>, expense) => {
+      if (breakdownDimension === "category") {
+        const key = expense.category || "Uncategorized";
+        acc[key] = (acc[key] || 0) + Number(expense.amount);
+      } else if (breakdownDimension === "merchant") {
+        const key = expense.merchant || "Unknown merchant";
+        acc[key] = (acc[key] || 0) + Number(expense.amount);
+      } else if (breakdownDimension === "user") {
+        const memberName = meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by;
+        acc[memberName] = (acc[memberName] || 0) + Number(expense.amount);
+      } else {
+        const tags = expense.tags && expense.tags.length > 0 ? expense.tags : ["Untagged"];
+        tags.forEach((tag) => {
+          acc[tag] = (acc[tag] || 0) + Number(expense.amount);
+        });
+      }
       return acc;
-    }, {})
-  ).map(([month, monthTotal]) => ({ month, total: monthTotal }));
+    }, {});
+
+    const labelMap: Record<BreakdownDimension, string> = {
+      category: "Category",
+      merchant: "Merchant",
+      user: "User",
+      tag: "Tag"
+    };
+
+    return Object.entries(grouped)
+      .map(([label, chartTotal]) => ({ label, total: chartTotal }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+      .map((entry) => ({ ...entry, name: `${labelMap[breakdownDimension]}: ${entry.label}` }));
+  }, [breakdownDimension, expenses, meta.members]);
+
+  const trendData = useMemo(() => {
+    const grouped = expenses.reduce((acc: Record<string, { label: string; total: number; count: number; sortValue: number }>, expense) => {
+      const expenseDate = new Date(expense.date);
+      let bucketKey = "";
+      let sortValue = 0;
+
+      if (trendBucket === "day") {
+        bucketKey = expense.date;
+        sortValue = new Date(expense.date).getTime();
+      } else if (trendBucket === "week") {
+        const weekStart = startOfWeek(expenseDate);
+        bucketKey = formatDate(weekStart);
+        sortValue = weekStart.getTime();
+      } else {
+        const monthDate = new Date(expenseDate.getFullYear(), expenseDate.getMonth(), 1);
+        bucketKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+        sortValue = monthDate.getTime();
+      }
+
+      const current = acc[bucketKey] ?? {
+        label: formatBucketLabel(expenseDate, trendBucket),
+        total: 0,
+        count: 0,
+        sortValue
+      };
+
+      current.total += Number(expense.amount);
+      current.count += 1;
+      current.sortValue = sortValue;
+      current.label = trendBucket === "week"
+        ? `Week of ${new Date(bucketKey).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+        : formatBucketLabel(expenseDate, trendBucket);
+      acc[bucketKey] = current;
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .sort((a, b) => a.sortValue - b.sortValue)
+      .map((entry) => ({
+        label: entry.label,
+        value: trendMetric === "total"
+          ? entry.total
+          : trendMetric === "count"
+            ? entry.count
+            : entry.count > 0
+              ? entry.total / entry.count
+              : 0
+      }));
+  }, [expenses, trendBucket, trendMetric]);
 
   const byPerson = useMemo(
     () => Object.entries(
@@ -233,6 +329,19 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+
+  const breakdownTitles: Record<BreakdownDimension, string> = {
+    category: "Spend by category",
+    merchant: "Spend by merchant",
+    user: "Spend by user",
+    tag: "Spend by tag"
+  };
+
+  const trendMetricLabel: Record<TrendMetric, string> = {
+    total: "Total spend",
+    count: "Expense count",
+    average: "Average expense"
+  };
 
   return (
     <div className="space-y-6">
@@ -299,14 +408,51 @@ export default function DashboardPage() {
         <p className="text-lg">Total spent: ${total.toFixed(2)}</p>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 font-semibold">Spend by Category</h2>
-          <SpendByCategoryChart data={byCategory} />
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+        <div className="space-y-3 rounded-lg bg-white p-6 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="font-semibold">{breakdownTitles[breakdownDimension]}</h2>
+              <p className="text-sm text-slate-500">Switch the breakdown to compare where the money goes.</p>
+            </div>
+            <label className="flex min-w-[180px] flex-col gap-1 text-xs font-medium text-slate-700">
+              Show breakdown for
+              <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={breakdownDimension} onChange={(e) => setBreakdownDimension(e.target.value as BreakdownDimension)}>
+                <option value="category">Categories</option>
+                <option value="merchant">Merchants</option>
+                <option value="user">Users</option>
+                <option value="tag">Tags</option>
+              </select>
+            </label>
+          </div>
+          <SpendByCategoryChart data={breakdownChart} />
         </div>
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 font-semibold">Trend</h2>
-          <MonthlySpendChart data={byMonth} />
+        <div className="space-y-3 rounded-lg bg-white p-6 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="font-semibold">Trend</h2>
+              <p className="text-sm text-slate-500">Choose both the time grouping and what metric to plot for more detail.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Group by
+                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={trendBucket} onChange={(e) => setTrendBucket(e.target.value as TrendBucket)}>
+                  <option value="day">Day</option>
+                  <option value="week">Week</option>
+                  <option value="month">Month</option>
+                </select>
+              </label>
+              <label className="flex min-w-[180px] flex-col gap-1 text-xs font-medium text-slate-700">
+                Plot
+                <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={trendMetric} onChange={(e) => setTrendMetric(e.target.value as TrendMetric)}>
+                  <option value="total">Total spend</option>
+                  <option value="count">Expense count</option>
+                  <option value="average">Average expense</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <MonthlySpendChart data={trendData} seriesLabel={trendMetricLabel[trendMetric]} />
         </div>
       </section>
 
