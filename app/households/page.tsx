@@ -3,7 +3,19 @@ import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-type Household = { id: string; name: string };
+type HouseholdMember = {
+  id: string;
+  role: string;
+  display_name: string;
+  email: string;
+};
+
+type Household = {
+  id: string;
+  name: string;
+  current_user_role: string | null;
+  members: HouseholdMember[];
+};
 
 export default function HouseholdsPage() {
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -70,8 +82,60 @@ export default function HouseholdsPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-lg bg-white p-6 shadow">
-        <h1 className="text-2xl font-semibold">Household Selector</h1>
-        <ul className="mt-4 space-y-2">{households.map((h) => <li key={h.id}>{h.name}</li>)}</ul>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">Households</h1>
+            <p className="mt-1 text-sm text-slate-600">Owners can now see who belongs to each household directly from this tab.</p>
+          </div>
+        </div>
+
+        {households.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-600">You are not in a household yet.</p>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {households.map((household) => {
+              const isOwner = household.current_user_role === "owner";
+
+              return (
+                <article key={household.id} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">{household.name}</h2>
+                      <p className="text-sm text-slate-600">
+                        Your role: <span className="font-medium capitalize">{household.current_user_role ?? "member"}</span>
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                      {isOwner ? `${household.members.length} member${household.members.length === 1 ? "" : "s"}` : "Members visible to owner"}
+                    </span>
+                  </div>
+
+                  {isOwner ? (
+                    household.members.length > 0 ? (
+                      <ul className="mt-4 space-y-3">
+                        {household.members.map((member) => (
+                          <li key={member.id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2">
+                            <div>
+                              <p className="font-medium text-slate-900">{member.display_name}</p>
+                              <p className="text-sm text-slate-600">{member.email || "No email available"}</p>
+                            </div>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium capitalize text-slate-700 shadow-sm ring-1 ring-slate-200">
+                              {member.role}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-sm text-slate-600">No members found in this household yet.</p>
+                    )
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-600">Only the household owner can see the full member list here.</p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
       <form className="rounded-lg bg-white p-6 shadow space-y-3" onSubmit={create}>
         <h2 className="font-semibold">Create Household</h2>
