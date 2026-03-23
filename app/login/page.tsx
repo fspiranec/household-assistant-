@@ -37,6 +37,7 @@ export default function LoginPage() {
       <div className="mt-4 flex gap-4 text-sm">
         <a href={registerHref} className="text-blue-600 hover:underline">Register</a>
         <a href="/recover" className="text-blue-600 hover:underline">Forgot password?</a>
+        <a href="/help" className="text-blue-600 hover:underline">Help</a>
       </div>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
     </section>
