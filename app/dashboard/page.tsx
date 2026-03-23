@@ -85,7 +85,7 @@ function formatBucketLabel(date: Date, bucket: TrendBucket) {
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
-  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
+  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], notes: [], members: [] });
   const [filters, setFilters] = useState<FilterState>({
     household_id: "",
     created_by: [],

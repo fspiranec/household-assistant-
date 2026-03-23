@@ -7,7 +7,7 @@ import { ExpenseMetaResponse, Household } from "@/types";
 export default function NewExpensePage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [message, setMessage] = useState("");
-  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
+  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], notes: [], members: [] });
   const [selectedTag, setSelectedTag] = useState("");
   const [customTags, setCustomTags] = useState("");
   const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "", is_private: false });
@@ -24,7 +24,11 @@ export default function NewExpensePage() {
   }, []);
 
   useEffect(() => {
-    if (!form.household_id) return;
+    if (!form.household_id) {
+      setMeta({ categories: [], tags: [], merchants: [], notes: [], members: [] });
+      return;
+    }
+
     fetch(`/api/expenses/meta?household_id=${form.household_id}`).then(async (res) => {
       if (!res.ok) return;
       const data = (await res.json()) as ExpenseMetaResponse;
@@ -46,6 +50,18 @@ export default function NewExpensePage() {
     () => [...new Set([selectedTag, ...customTags.split(",").map((t) => t.trim())].filter(Boolean))],
     [selectedTag, customTags]
   );
+
+  const handleHouseholdChange = (householdId: string) => {
+    setSelectedTag("");
+    setCustomTags("");
+    setForm((p) => ({
+      ...p,
+      household_id: householdId,
+      merchant: "",
+      category: "",
+      notes: ""
+    }));
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +92,7 @@ export default function NewExpensePage() {
           <select
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             value={form.household_id}
-            onChange={(e) => setForm((p) => ({ ...p, household_id: e.target.value }))}
+            onChange={(e) => handleHouseholdChange(e.target.value)}
             required
           >
             {households.length === 0 && <option value="">No households found</option>}
@@ -130,7 +146,8 @@ export default function NewExpensePage() {
         </label>
 
         <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" />
-        <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" />
+        <Input list="note-options" placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" />
+        <datalist id="note-options">{meta.notes.map((note) => <option key={note} value={note} />)}</datalist>
         <Input type="file" onChange={(e) => parseReceipt(e.target.files?.[0])} className="md:col-span-2" />
         <Button type="submit" className="w-fit" disabled={!form.household_id}>Save Expense</Button>
       </form>

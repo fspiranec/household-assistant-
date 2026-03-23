@@ -29,12 +29,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [categoriesResult, tagsResult, merchantsResult, membersResult, expenseTagsResult] = await Promise.all([
+  const [categoriesResult, tagsResult, merchantsResult, membersResult, expenseTagsResult, notesResult] = await Promise.all([
     auth.supabase.from("expense_categories").select("name").eq("household_id", householdId).order("name"),
     auth.supabase.from("tags").select("name").eq("household_id", householdId).order("name"),
     auth.supabase.from("expenses").select("merchant").eq("household_id", householdId),
     auth.supabase.from("household_members").select("user_id").eq("household_id", householdId),
-    auth.supabase.from("expenses").select("tags").eq("household_id", householdId)
+    auth.supabase.from("expenses").select("tags").eq("household_id", householdId),
+    auth.supabase.from("expenses").select("notes").eq("household_id", householdId).not("notes", "is", null)
   ]);
 
   const memberRows = (membersResult.data ?? []) as { user_id: string }[];
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest) {
     .filter(Boolean);
   const tags = [...new Set([...tagsFromTable, ...tagsFromExpenses])].sort();
   const merchants = [...new Set(((merchantsResult.data ?? []) as { merchant: string }[]).map((m) => m.merchant).filter(Boolean))].sort();
+  const notes = [...new Set(((notesResult.data ?? []) as { notes: string | null }[]).map((row) => row.notes?.trim() ?? "").filter(Boolean))].sort();
 
   const members = userIds.map((id) => {
     const row = users.find((u) => u.id === id);
@@ -65,5 +67,5 @@ export async function GET(req: NextRequest) {
     return { id, display_name: display };
   });
 
-  return NextResponse.json({ categories, tags, merchants, members });
+  return NextResponse.json({ categories, tags, merchants, notes, members });
 }
