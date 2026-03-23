@@ -26,6 +26,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <>
                   <Link href="/login">Login</Link>
                   <Link href="/register">Register</Link>
+                  <Link href="/help">Help</Link>
                 </>
               )}
               {isLoggedIn && (
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/households">Households</Link>
                   <Link href="/export">Export</Link>
                   <Link href="/profile">Profile</Link>
+                  <Link href="/help">Help</Link>
                   <form action="/api/auth/logout" method="post">
                     <button type="submit" className="text-sm">Logout</button>
                   </form>
