@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { MonthlySpendChart } from "@/components/charts/MonthlySpendChart";
 import { SpendByCategoryChart } from "@/components/charts/SpendByCategoryChart";
 import { Expense, ExpenseMetaResponse, ExpensesResponse, Household } from "@/types";
@@ -188,6 +189,25 @@ export default function DashboardPage() {
   }, [appliedFilters]);
 
   const applyFilters = () => setAppliedFilters(filters);
+
+  const exportQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (appliedFilters.household_id) params.set("household_id", appliedFilters.household_id);
+    appliedFilters.created_by.forEach((userId) => params.append("created_by", userId));
+    appliedFilters.categories.forEach((category) => params.append("category", category));
+    appliedFilters.tags.forEach((tag) => params.append("tag", tag));
+    appliedFilters.merchants.forEach((merchant) => params.append("merchant", merchant));
+    if (appliedFilters.exclude_private) params.set("exclude_private", "true");
+
+    const range = appliedFilters.preset === "custom"
+      ? { start: appliedFilters.start, end: appliedFilters.end }
+      : getPresetRange(appliedFilters.preset, appliedFilters.day);
+
+    if (range.start) params.set("start", range.start);
+    if (range.end) params.set("end", range.end);
+
+    return params.toString();
+  }, [appliedFilters]);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
@@ -459,6 +479,19 @@ export default function DashboardPage() {
           <button type="button" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={applyFilters}>
             Apply filters
           </button>
+          <Link
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href={`/api/export/xlsx?${exportQuery}`}
+          >
+            Export Excel
+          </Link>
+          <Link
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href={`/api/export/pdf?${exportQuery}`}
+            target="_blank"
+          >
+            Export PDF
+          </Link>
           <p className="self-center text-sm text-slate-500">Showing {expenses.length} expenses totaling ${total.toFixed(2)}</p>
         </div>
       </section>
