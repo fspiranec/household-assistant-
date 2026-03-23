@@ -73,5 +73,6 @@ export type ExpenseMetaResponse = {
   categories: string[];
   tags: string[];
   merchants: string[];
+  notes: string[];
   members: HouseholdMemberOption[];
 };

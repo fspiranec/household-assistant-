@@ -11,7 +11,7 @@ export default function ExpenseDetailPage() {
   const router = useRouter();
   const [expense, setExpense] = useState<ExpenseDetail | null>(null);
   const [households, setHouseholds] = useState<Household[]>([]);
-  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], members: [] });
+  const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], notes: [], members: [] });
   const [message, setMessage] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [customTags, setCustomTags] = useState("");
@@ -179,7 +179,8 @@ export default function ExpenseDetailPage() {
           </select>
         </label>
         <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" disabled={!canEdit} />
-        <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" disabled={!canEdit} />
+        <Input list="note-options" placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" disabled={!canEdit} />
+        <datalist id="note-options">{meta.notes.map((note) => <option key={note} value={note} />)}</datalist>
         <div className="flex gap-2 md:col-span-2">
           {canEdit && <Button type="submit">Save Changes</Button>}
           {canEdit && <Button type="button" className="bg-red-700 hover:bg-red-600" onClick={onDelete}>Delete Expense</Button>}
