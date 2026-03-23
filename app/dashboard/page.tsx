@@ -349,14 +349,20 @@ export default function DashboardPage() {
     average: "currency"
   };
 
+  const formatExpenseHoverDetails = (expense: Expense) => {
+    const tags = expense.tags && expense.tags.length > 0 ? expense.tags.join(", ") : "No tags";
+    const notes = expense.notes?.trim() ? expense.notes.trim() : "No notes";
+    return `Tags: ${tags}\nNotes: ${notes}`;
+  };
+
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg bg-white p-6 shadow">
         <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
         <h2 className="text-sm font-medium text-slate-700">Filters</h2>
-        <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max items-start gap-2">
-            <label className="flex min-w-[170px] flex-col gap-1 text-xs font-medium text-slate-700">
+        <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
               Household
               <select
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -366,7 +372,7 @@ export default function DashboardPage() {
                 {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </label>
-            <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-slate-700">
+            <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
               Quick range
               <select
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -381,8 +387,19 @@ export default function DashboardPage() {
                 <option value="custom">Custom</option>
               </select>
             </label>
+            <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
+              Private expenses
+              <select
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={filters.exclude_private ? "exclude" : "include"}
+                onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "exclude" }))}
+              >
+                <option value="include">Include private</option>
+                <option value="exclude">Exclude private</option>
+              </select>
+            </label>
             {filters.preset === "day" && (
-              <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+              <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
                 Day
                 <input
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -394,7 +411,7 @@ export default function DashboardPage() {
             )}
             {filters.preset === "custom" && (
               <>
-                <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+                <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
                   Start
                   <input
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -403,7 +420,7 @@ export default function DashboardPage() {
                     onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))}
                   />
                 </label>
-                <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
+                <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-700">
                   End
                   <input
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -414,17 +431,8 @@ export default function DashboardPage() {
                 </label>
               </>
             )}
-            <label className="flex min-w-[150px] flex-col gap-1 text-xs font-medium text-slate-700">
-              Private expenses
-              <select
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={filters.exclude_private ? "exclude" : "include"}
-                onChange={(e) => setFilters((p) => ({ ...p, exclude_private: e.target.value === "exclude" }))}
-              >
-                <option value="include">Include private</option>
-                <option value="exclude">Exclude private</option>
-              </select>
-            </label>
+          </div>
+          <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-4">
             {renderCheckboxGroup(
               "created_by",
               "Users",
@@ -518,9 +526,20 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {expenses.map((expense) => (
-                  <tr key={expense.id} className="border-b last:border-b-0">
+                  <tr
+                    key={expense.id}
+                    className="group border-b transition-colors hover:bg-slate-50 last:border-b-0"
+                    title={formatExpenseHoverDetails(expense)}
+                  >
                     <td className="px-3 py-2">{expense.date}</td>
-                    <td className="px-3 py-2">{expense.merchant}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col">
+                        <span>{expense.merchant}</span>
+                        <span className="text-xs text-slate-400 opacity-0 transition-opacity group-hover:opacity-100">
+                          Hover row for tags & notes
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-3 py-2">{expense.category}</td>
                     <td className="px-3 py-2">{expense.created_by_name || meta.members.find((member) => member.id === expense.created_by)?.display_name || expense.created_by}</td>
                     <td className="px-3 py-2">{expense.is_private ? "Private" : "Household"}</td>
