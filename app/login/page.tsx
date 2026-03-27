@@ -3,6 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
@@ -34,6 +35,9 @@ export default function LoginPage() {
         <Input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         <Button type="submit">Login</Button>
       </form>
+      <div className="mt-3">
+        <GoogleSignInButton className="w-full" redirectTo={redirect} />
+      </div>
       <div className="mt-4 flex gap-4 text-sm">
         <a href={registerHref} className="text-blue-600 hover:underline">Register</a>
         <a href="/recover" className="text-blue-600 hover:underline">Forgot password?</a>

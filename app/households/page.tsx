@@ -25,6 +25,11 @@ export default function HouseholdsPage() {
   const [message, setMessage] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [mailtoLink, setMailtoLink] = useState("");
+  const [auditLog, setAuditLog] = useState<Array<{ at: string; event: string }>>([]);
+
+  const recordAudit = (event: string) => {
+    setAuditLog((prev) => [{ at: new Date().toISOString(), event }, ...prev].slice(0, 25));
+  };
 
   const load = async () => {
     const res = await fetch("/api/households");
@@ -61,6 +66,7 @@ export default function HouseholdsPage() {
     }
 
     setMessage("Household created successfully");
+    recordAudit(`Household created: ${name}`);
     setName("");
     load();
   };
@@ -80,6 +86,7 @@ export default function HouseholdsPage() {
     }
 
     setMessage(data.message || "Invite created");
+    recordAudit(`Invite generated for ${invite.email || "share link only"} in household ${invite.household_id}`);
     setShareLink(data.join_link || "");
     setMailtoLink(data.mailto_link || "");
     setInvite((p) => ({ ...p, email: "" }));
@@ -100,6 +107,7 @@ export default function HouseholdsPage() {
     }
 
     setMessage(data.message || "User added to household");
+    recordAudit(`User added by email: ${directAdd.email} to household ${directAdd.household_id}`);
     setDirectAdd((p) => ({ ...p, email: "" }));
     load();
   };
@@ -120,6 +128,7 @@ export default function HouseholdsPage() {
     setShareLink(data.join_link || "");
     setMailtoLink("");
     setMessage(data.message || "Share link created");
+    recordAudit(`Share link generated for household ${household_id}`);
   };
 
   return (
@@ -239,6 +248,19 @@ export default function HouseholdsPage() {
           )}
         </div>
       )}
+      <section className="rounded-lg bg-white p-6 shadow space-y-3">
+        <h2 className="font-semibold">Membership & invite audit log</h2>
+        <p className="text-sm text-slate-600">Recent household membership actions from this browser session.</p>
+        <ul className="space-y-2 text-sm">
+          {auditLog.map((entry) => (
+            <li key={`${entry.at}-${entry.event}`} className="rounded border border-slate-200 px-3 py-2">
+              <p className="font-medium text-slate-900">{entry.event}</p>
+              <p className="text-xs text-slate-500">{new Date(entry.at).toLocaleString()}</p>
+            </li>
+          ))}
+          {auditLog.length === 0 && <li className="text-slate-500">No actions recorded yet.</li>}
+        </ul>
+      </section>
     </div>
   );
 }
