@@ -112,6 +112,11 @@ export default function ExpensesPage() {
           <option value="yes">Exclude private</option>
         </select>
       </div>
+      <div>
+        <Link className="inline-block rounded bg-slate-900 px-4 py-2 text-white" href="/expenses/new">
+          Add Expense
+        </Link>
+      </div>
       <div className="rounded-lg bg-white shadow">
         <table className="w-full text-sm">
           <thead className="border-b bg-slate-50">
@@ -142,9 +147,6 @@ export default function ExpensesPage() {
           </tbody>
         </table>
       </div>
-      <Link className="inline-block rounded bg-slate-900 px-4 py-2 text-white" href="/expenses/new">
-        Add Expense
-      </Link>
     </section>
   );
 }

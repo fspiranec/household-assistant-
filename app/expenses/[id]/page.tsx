@@ -13,8 +13,8 @@ export default function ExpenseDetailPage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], notes: [], members: [] });
   const [message, setMessage] = useState("");
-  const [selectedTag, setSelectedTag] = useState("");
-  const [customTags, setCustomTags] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [form, setForm] = useState({
     household_id: "",
     amount: "",
@@ -42,8 +42,8 @@ export default function ExpenseDetailPage() {
 
       const expenseData = data as ExpenseDetail;
       setExpense(expenseData);
-      setSelectedTag((expenseData.tags ?? [])[0] ?? "");
-      setCustomTags((expenseData.tags ?? []).slice(1).join(", "));
+      setSelectedTags(expenseData.tags ?? []);
+      setTagInput("");
       setForm({
         household_id: expenseData.household_id,
         amount: String(expenseData.amount ?? ""),
@@ -64,10 +64,39 @@ export default function ExpenseDetailPage() {
     });
   }, [form.household_id]);
 
-  const allTags = useMemo(
-    () => [...new Set([selectedTag, ...customTags.split(",").map((tag) => tag.trim())].filter(Boolean))],
-    [selectedTag, customTags]
-  );
+  const allTags = useMemo(() => [...new Set(selectedTags.map((tag) => tag.trim()).filter(Boolean))], [selectedTags]);
+
+  const categoryNormalizationSuggestion = useMemo(() => {
+    const current = form.category.trim();
+    if (!current) return "";
+    const exact = meta.categories.find((category) => category === current);
+    if (exact) return "";
+    return meta.categories.find((category) => category.toLowerCase() === current.toLowerCase()) || "";
+  }, [form.category, meta.categories]);
+
+  const merchantNormalizationSuggestion = useMemo(() => {
+    const current = form.merchant.trim();
+    if (!current) return "";
+    const exact = meta.merchants.find((merchant) => merchant === current);
+    if (exact) return "";
+    return meta.merchants.find((merchant) => merchant.toLowerCase() === current.toLowerCase()) || "";
+  }, [form.merchant, meta.merchants]);
+
+  const tagNormalizationSuggestions = useMemo(() => {
+    return allTags
+      .map((tag) => {
+        const normalized = meta.tags.find((existingTag) => existingTag.toLowerCase() === tag.toLowerCase());
+        if (!normalized || normalized === tag) return null;
+        return { entered: tag, normalized };
+      })
+      .filter((value): value is { entered: string; normalized: string } => Boolean(value));
+  }, [allTags, meta.tags]);
+
+  const addTag = (raw: string) => {
+    const normalized = raw.trim();
+    if (!normalized) return;
+    setSelectedTags((prev) => [...new Set([...prev, normalized])]);
+  };
 
   const onSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -148,11 +177,31 @@ export default function ExpenseDetailPage() {
           Merchant
           <Input list="merchant-options" value={form.merchant} onChange={(e) => setForm((p) => ({ ...p, merchant: e.target.value }))} required disabled={!canEdit} />
           <datalist id="merchant-options">{meta.merchants.map((merchant) => <option key={merchant} value={merchant} />)}</datalist>
+          {merchantNormalizationSuggestion ? (
+            <button
+              type="button"
+              className="w-fit text-xs text-blue-700 hover:underline disabled:text-slate-400"
+              onClick={() => setForm((p) => ({ ...p, merchant: merchantNormalizationSuggestion }))}
+              disabled={!canEdit}
+            >
+              Use existing merchant: {merchantNormalizationSuggestion}
+            </button>
+          ) : null}
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Category
           <Input list="category-options" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required disabled={!canEdit} />
           <datalist id="category-options">{meta.categories.map((category) => <option key={category} value={category} />)}</datalist>
+          {categoryNormalizationSuggestion ? (
+            <button
+              type="button"
+              className="w-fit text-xs text-blue-700 hover:underline disabled:text-slate-400"
+              onClick={() => setForm((p) => ({ ...p, category: categoryNormalizationSuggestion }))}
+              disabled={!canEdit}
+            >
+              Use existing category: {categoryNormalizationSuggestion}
+            </button>
+          ) : null}
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Private expense
@@ -167,18 +216,63 @@ export default function ExpenseDetailPage() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm md:col-span-2">
-          Tag
-          <select
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-            disabled={!canEdit}
-          >
-            <option value="">Select existing tag</option>
-            {meta.tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-          </select>
+          Tags
+          <div className="mt-1 flex gap-2">
+            <Input
+              list="tag-options"
+              placeholder="Search or type tag and press Enter"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              disabled={!canEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addTag(tagInput);
+                  setTagInput("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:text-slate-400"
+              onClick={() => {
+                addTag(tagInput);
+                setTagInput("");
+              }}
+              disabled={!canEdit}
+            >
+              Add tag
+            </button>
+          </div>
+          <datalist id="tag-options">{meta.tags.map((tag) => <option key={tag} value={tag} />)}</datalist>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {selectedTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs disabled:text-slate-400"
+                onClick={() => setSelectedTags((prev) => prev.filter((value) => value !== tag))}
+                title="Remove tag"
+                disabled={!canEdit}
+              >
+                {tag} ×
+              </button>
+            ))}
+            {selectedTags.length === 0 && <span className="text-xs text-slate-500">No tags added yet.</span>}
+          </div>
         </label>
-        <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" disabled={!canEdit} />
+        {tagNormalizationSuggestions.length > 0 ? (
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 md:col-span-2">
+            <p className="font-medium">Tag normalization suggestions</p>
+            <ul className="mt-1 list-disc pl-4">
+              {tagNormalizationSuggestions.map((item) => (
+                <li key={`${item.entered}-${item.normalized}`}>
+                  Replace &quot;{item.entered}&quot; with &quot;{item.normalized}&quot; for consistency.
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <Input list="note-options" placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" disabled={!canEdit} />
         <datalist id="note-options">{meta.notes.map((note) => <option key={note} value={note} />)}</datalist>
         <div className="flex gap-2 md:col-span-2">
