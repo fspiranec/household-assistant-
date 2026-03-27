@@ -28,6 +28,7 @@ export default function ExpensesPage() {
     merchant: "",
     exclude_private: false
   });
+  const [maskPrivateAmounts, setMaskPrivateAmounts] = useState(true);
 
   useEffect(() => {
     fetch("/api/households").then(async (res) => {
@@ -52,6 +53,22 @@ export default function ExpensesPage() {
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold">Expense List</h1>
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+        <p className="font-medium text-slate-900">Privacy visibility guide</p>
+        <ul className="mt-1 list-disc pl-5 text-xs">
+          <li><span className="font-medium">Household</span> expenses are visible to household members in shared reporting.</li>
+          <li><span className="font-medium">Private</span> expenses can be included/excluded with filters.</li>
+          <li>Use amount masking if you are screen-sharing and want to hide private amounts.</li>
+        </ul>
+        <label className="mt-2 inline-flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={maskPrivateAmounts}
+            onChange={(e) => setMaskPrivateAmounts(e.target.checked)}
+          />
+          Mask private expense amounts
+        </label>
+      </div>
       <div className="grid gap-2 md:grid-cols-7">
         <select
           className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -119,7 +136,7 @@ export default function ExpensesPage() {
                 <td>{row.category}</td>
                 <td>{row.created_by_name ?? row.created_by}</td>
                 <td>{row.is_private ? "Private" : "Household"}</td>
-                <td>${Number(row.amount).toFixed(2)}</td>
+                <td>{row.is_private && maskPrivateAmounts ? "••••" : `$${Number(row.amount).toFixed(2)}`}</td>
               </tr>
             ))}
           </tbody>

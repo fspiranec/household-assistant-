@@ -51,6 +51,32 @@ export default function NewExpensePage() {
     [selectedTag, customTags]
   );
 
+  const categoryNormalizationSuggestion = useMemo(() => {
+    const current = form.category.trim();
+    if (!current) return "";
+    const exact = meta.categories.find((category) => category === current);
+    if (exact) return "";
+    return meta.categories.find((category) => category.toLowerCase() === current.toLowerCase()) || "";
+  }, [form.category, meta.categories]);
+
+  const merchantNormalizationSuggestion = useMemo(() => {
+    const current = form.merchant.trim();
+    if (!current) return "";
+    const exact = meta.merchants.find((merchant) => merchant === current);
+    if (exact) return "";
+    return meta.merchants.find((merchant) => merchant.toLowerCase() === current.toLowerCase()) || "";
+  }, [form.merchant, meta.merchants]);
+
+  const tagNormalizationSuggestions = useMemo(() => {
+    return allTags
+      .map((tag) => {
+        const normalized = meta.tags.find((existingTag) => existingTag.toLowerCase() === tag.toLowerCase());
+        if (!normalized || normalized === tag) return null;
+        return { entered: tag, normalized };
+      })
+      .filter((value): value is { entered: string; normalized: string } => Boolean(value));
+  }, [allTags, meta.tags]);
+
   const handleHouseholdChange = (householdId: string) => {
     setSelectedTag("");
     setCustomTags("");
@@ -113,12 +139,30 @@ export default function NewExpensePage() {
           Merchant
           <Input list="merchant-options" placeholder="Merchant" value={form.merchant} onChange={(e) => setForm((p) => ({ ...p, merchant: e.target.value }))} required />
           <datalist id="merchant-options">{meta.merchants.map((m) => <option key={m} value={m} />)}</datalist>
+          {merchantNormalizationSuggestion ? (
+            <button
+              type="button"
+              className="w-fit text-xs text-blue-700 hover:underline"
+              onClick={() => setForm((p) => ({ ...p, merchant: merchantNormalizationSuggestion }))}
+            >
+              Use existing merchant: {merchantNormalizationSuggestion}
+            </button>
+          ) : null}
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
           Category
           <Input list="category-options" placeholder="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} required />
           <datalist id="category-options">{meta.categories.map((c) => <option key={c} value={c} />)}</datalist>
+          {categoryNormalizationSuggestion ? (
+            <button
+              type="button"
+              className="w-fit text-xs text-blue-700 hover:underline"
+              onClick={() => setForm((p) => ({ ...p, category: categoryNormalizationSuggestion }))}
+            >
+              Use existing category: {categoryNormalizationSuggestion}
+            </button>
+          ) : null}
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -146,6 +190,18 @@ export default function NewExpensePage() {
         </label>
 
         <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" />
+        {tagNormalizationSuggestions.length > 0 ? (
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 md:col-span-2">
+            <p className="font-medium">Tag normalization suggestions</p>
+            <ul className="mt-1 list-disc pl-4">
+              {tagNormalizationSuggestions.map((item) => (
+                <li key={`${item.entered}-${item.normalized}`}>
+                  Replace &quot;{item.entered}&quot; with &quot;{item.normalized}&quot; for consistency.
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <Input list="note-options" placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="md:col-span-2" />
         <datalist id="note-options">{meta.notes.map((note) => <option key={note} value={note} />)}</datalist>
         <Input type="file" onChange={(e) => parseReceipt(e.target.files?.[0])} className="md:col-span-2" />

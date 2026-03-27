@@ -3,6 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
@@ -10,6 +11,7 @@ export default function RegisterPage() {
   const loginHref = useMemo(() => `/login?redirect=${encodeURIComponent(redirect)}`, [redirect]);
   const [form, setForm] = useState({ username: "", first_name: "", last_name: "", email: "", password: "" });
   const [message, setMessage] = useState("");
+  const [registered, setRegistered] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,6 +22,7 @@ export default function RegisterPage() {
     });
     const data = await res.json();
     setMessage(data.message || data.error || (res.ok ? "Registered" : "Failed"));
+    setRegistered(res.ok);
   };
 
   return (
@@ -38,10 +41,23 @@ export default function RegisterPage() {
         ))}
         <Button type="submit">Register</Button>
       </form>
+      <div className="mt-3">
+        <GoogleSignInButton className="w-full" redirectTo={redirect} />
+      </div>
       <p className="mt-4 text-sm text-slate-600">{message}</p>
       <p className="mt-4 text-sm text-slate-600">
         Already have an account? <a href={loginHref} className="text-blue-600 hover:underline">Log in</a>
       </p>
+      {registered ? (
+        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p className="font-medium">First-run checklist</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>Create your first household</li>
+            <li>Add your first expense</li>
+            <li>Open Dashboard and apply filters</li>
+          </ol>
+        </div>
+      ) : null}
     </section>
   );
 }
