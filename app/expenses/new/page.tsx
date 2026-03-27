@@ -8,8 +8,8 @@ export default function NewExpensePage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [message, setMessage] = useState("");
   const [meta, setMeta] = useState<ExpenseMetaResponse>({ categories: [], tags: [], merchants: [], notes: [], members: [] });
-  const [selectedTag, setSelectedTag] = useState("");
-  const [customTags, setCustomTags] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [form, setForm] = useState({ amount: "", date: "", merchant: "", category: "", notes: "", household_id: "", is_private: false });
 
   useEffect(() => {
@@ -46,10 +46,7 @@ export default function NewExpensePage() {
     setForm((p) => ({ ...p, merchant: data.merchant ?? p.merchant, amount: String(data.total ?? p.amount), date: data.date ?? p.date }));
   };
 
-  const allTags = useMemo(
-    () => [...new Set([selectedTag, ...customTags.split(",").map((t) => t.trim())].filter(Boolean))],
-    [selectedTag, customTags]
-  );
+  const allTags = useMemo(() => [...new Set(selectedTags.map((tag) => tag.trim()).filter(Boolean))], [selectedTags]);
 
   const categoryNormalizationSuggestion = useMemo(() => {
     const current = form.category.trim();
@@ -77,9 +74,15 @@ export default function NewExpensePage() {
       .filter((value): value is { entered: string; normalized: string } => Boolean(value));
   }, [allTags, meta.tags]);
 
+  const addTag = (raw: string) => {
+    const normalized = raw.trim();
+    if (!normalized) return;
+    setSelectedTags((prev) => [...new Set([...prev, normalized])]);
+  };
+
   const handleHouseholdChange = (householdId: string) => {
-    setSelectedTag("");
-    setCustomTags("");
+    setTagInput("");
+    setSelectedTags([]);
     setForm((p) => ({
       ...p,
       household_id: householdId,
@@ -104,8 +107,8 @@ export default function NewExpensePage() {
     }
 
     setMessage("Expense saved");
-    setCustomTags("");
-    setSelectedTag("");
+    setTagInput("");
+    setSelectedTags([]);
     setForm((p) => ({ ...p, amount: "", date: "", merchant: "", category: "", notes: "", is_private: false }));
   };
 
@@ -178,18 +181,48 @@ export default function NewExpensePage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm md:col-span-2">
-          Tag
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-          >
-            <option value="">Select existing tag</option>
-            {meta.tags.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          Tags
+          <div className="mt-1 flex gap-2">
+            <Input
+              list="tag-options"
+              placeholder="Search or type tag and press Enter"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addTag(tagInput);
+                  setTagInput("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+              onClick={() => {
+                addTag(tagInput);
+                setTagInput("");
+              }}
+            >
+              Add tag
+            </button>
+          </div>
+          <datalist id="tag-options">{meta.tags.map((tag) => <option key={tag} value={tag} />)}</datalist>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {selectedTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs"
+                onClick={() => setSelectedTags((prev) => prev.filter((value) => value !== tag))}
+                title="Remove tag"
+              >
+                {tag} ×
+              </button>
+            ))}
+            {selectedTags.length === 0 && <span className="text-xs text-slate-500">No tags added yet.</span>}
+          </div>
         </label>
-
-        <Input placeholder="Additional tags (comma separated)" value={customTags} onChange={(e) => setCustomTags(e.target.value)} className="md:col-span-2" />
         {tagNormalizationSuggestions.length > 0 ? (
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 md:col-span-2">
             <p className="font-medium">Tag normalization suggestions</p>
