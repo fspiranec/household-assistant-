@@ -10,6 +10,7 @@ type MultiFilterKey = "created_by" | "categories" | "tags" | "merchants";
 type BreakdownDimension = "category" | "merchant" | "user" | "tag";
 type TrendBucket = "day" | "week" | "month";
 type TrendMetric = "total" | "count" | "average";
+type BudgetMap = Record<string, number>;
 
 type FilterState = {
   household_id: string;
@@ -83,6 +84,22 @@ function formatBucketLabel(date: Date, bucket: TrendBucket) {
   return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
+function getAppliedDateRange(filters: FilterState) {
+  const range = filters.preset === "custom"
+    ? { start: filters.start, end: filters.end }
+    : getPresetRange(filters.preset, filters.day);
+  return range;
+}
+
+function countDaysInclusive(start: string, end: string) {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 0;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diff = Math.floor((endDate.getTime() - startDate.getTime()) / msPerDay) + 1;
+  return Math.max(diff, 0);
+}
+
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -103,6 +120,10 @@ export default function DashboardPage() {
   const [breakdownDimension, setBreakdownDimension] = useState<BreakdownDimension>("category");
   const [trendBucket, setTrendBucket] = useState<TrendBucket>("day");
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("total");
+  const [budgetByCategory, setBudgetByCategory] = useState<BudgetMap>({});
+  const [budgetCategory, setBudgetCategory] = useState("");
+  const [budgetAmount, setBudgetAmount] = useState("");
+  const [appOrigin, setAppOrigin] = useState("");
 
   const allOptions = {
     created_by: meta.members.map((m) => m.id),
@@ -174,9 +195,7 @@ export default function DashboardPage() {
     appliedFilters.merchants.forEach((merchant) => params.append("merchant", merchant));
     if (appliedFilters.exclude_private) params.set("exclude_private", "true");
 
-    const range = appliedFilters.preset === "custom"
-      ? { start: appliedFilters.start, end: appliedFilters.end }
-      : getPresetRange(appliedFilters.preset, appliedFilters.day);
+    const range = getAppliedDateRange(appliedFilters);
 
     if (range.start) params.set("start", range.start);
     if (range.end) params.set("end", range.end);
@@ -199,9 +218,7 @@ export default function DashboardPage() {
     appliedFilters.merchants.forEach((merchant) => params.append("merchant", merchant));
     if (appliedFilters.exclude_private) params.set("exclude_private", "true");
 
-    const range = appliedFilters.preset === "custom"
-      ? { start: appliedFilters.start, end: appliedFilters.end }
-      : getPresetRange(appliedFilters.preset, appliedFilters.day);
+    const range = getAppliedDateRange(appliedFilters);
 
     if (range.start) params.set("start", range.start);
     if (range.end) params.set("end", range.end);
@@ -210,6 +227,81 @@ export default function DashboardPage() {
   }, [appliedFilters]);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const appliedRange = getAppliedDateRange(appliedFilters);
+  const selectedHouseholdName = households.find((household) => household.id === appliedFilters.household_id)?.name || "Selected household";
+
+  useEffect(() => {
+    setAppOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!appliedFilters.household_id) return;
+    const key = `budget:${appliedFilters.household_id}`;
+    const stored = window.localStorage.getItem(key);
+    if (!stored) {
+      setBudgetByCategory({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as BudgetMap;
+      setBudgetByCategory(parsed);
+    } catch {
+      setBudgetByCategory({});
+    }
+  }, [appliedFilters.household_id]);
+
+  useEffect(() => {
+    if (!appliedFilters.household_id) return;
+    const key = `budget:${appliedFilters.household_id}`;
+    window.localStorage.setItem(key, JSON.stringify(budgetByCategory));
+  }, [appliedFilters.household_id, budgetByCategory]);
+
+  const categorySpend = useMemo(
+    () => expenses.reduce((acc: Record<string, number>, expense) => {
+      const key = expense.category || "Uncategorized";
+      acc[key] = (acc[key] || 0) + Number(expense.amount);
+      return acc;
+    }, {}),
+    [expenses]
+  );
+
+  const budgetStatus = useMemo(
+    () => Object.entries(budgetByCategory)
+      .map(([category, limit]) => {
+        const spent = categorySpend[category] || 0;
+        const percent = limit > 0 ? (spent / limit) * 100 : 0;
+        return { category, limit, spent, percent };
+      })
+      .sort((a, b) => b.percent - a.percent),
+    [budgetByCategory, categorySpend]
+  );
+
+  const thresholdAlerts = budgetStatus.filter((item) => item.percent >= 80);
+
+  const unusualSpendInsights = useMemo(() => {
+    const dayTotals = expenses.reduce((acc: Record<string, number>, expense) => {
+      acc[expense.date] = (acc[expense.date] || 0) + Number(expense.amount);
+      return acc;
+    }, {});
+    const values = Object.values(dayTotals);
+    if (values.length < 5) return [];
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const spikes = Object.entries(dayTotals)
+      .filter(([, value]) => value >= average * 1.8)
+      .map(([date, value]) => ({ date, value, average }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3);
+    return spikes;
+  }, [expenses]);
+
+  const setBudget = () => {
+    const normalizedCategory = budgetCategory.trim();
+    const normalizedAmount = Number(budgetAmount);
+    if (!normalizedCategory || Number.isNaN(normalizedAmount) || normalizedAmount <= 0) return;
+    setBudgetByCategory((prev) => ({ ...prev, [normalizedCategory]: normalizedAmount }));
+    setBudgetCategory("");
+    setBudgetAmount("");
+  };
 
   const breakdownChart = useMemo(() => {
     const grouped = expenses.reduce((acc: Record<string, number>, expense) => {
@@ -481,6 +573,12 @@ export default function DashboardPage() {
           </button>
           <Link
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href={`/api/export/csv?${exportQuery}`}
+          >
+            Export CSV
+          </Link>
+          <Link
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             href={`/api/export/xlsx?${exportQuery}`}
           >
             Export Excel
@@ -492,7 +590,103 @@ export default function DashboardPage() {
           >
             Export PDF
           </Link>
+          <a
+            className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            href={`mailto:?subject=Monthly household export reminder&body=Set a monthly reminder to export household data from ${appOrigin || ""}/dashboard`}
+          >
+            Schedule monthly email reminder
+          </a>
           <p className="self-center text-sm text-slate-500">Showing {expenses.length} expenses totaling ${total.toFixed(2)}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+          <p className="font-semibold text-slate-800">Export scope summary</p>
+          <p className="mt-1">
+            Household: <span className="font-medium">{selectedHouseholdName}</span> · Date range:{" "}
+            <span className="font-medium">
+              {appliedRange.start || "Any"} → {appliedRange.end || "Any"}
+            </span> · Estimated rows: <span className="font-medium">{expenses.length}</span>
+          </p>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold">Category budgets & threshold alerts</h2>
+          <p className="mt-1 text-sm text-slate-500">Set monthly category limits and get alerts at 80% utilization.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              list="budget-category-options"
+              placeholder="Category"
+              value={budgetCategory}
+              onChange={(e) => setBudgetCategory(e.target.value)}
+            />
+            <datalist id="budget-category-options">
+              {meta.categories.map((category) => <option key={category} value={category} />)}
+            </datalist>
+            <input
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Budget amount"
+              value={budgetAmount}
+              onChange={(e) => setBudgetAmount(e.target.value)}
+            />
+            <button type="button" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={setBudget}>
+              Save budget
+            </button>
+          </div>
+          <div className="mt-4 space-y-3">
+            {budgetStatus.map((item) => (
+              <div key={item.category} className="rounded-md border border-slate-200 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <p className="font-medium">{item.category}</p>
+                  <p>${item.spent.toFixed(2)} / ${item.limit.toFixed(2)}</p>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className={`h-full ${item.percent >= 100 ? "bg-red-500" : item.percent >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min(item.percent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {budgetStatus.length === 0 && <p className="text-sm text-slate-500">No budgets configured yet.</p>}
+          </div>
+          {thresholdAlerts.length > 0 && (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-semibold">Threshold alerts</p>
+              <ul className="mt-2 list-disc pl-5">
+                {thresholdAlerts.map((alert) => (
+                  <li key={alert.category}>
+                    {alert.category}: {alert.percent.toFixed(0)}% of budget used.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold">Unusual spend signals</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Flags days where spend is at least 1.8× above your filtered daily average.
+          </p>
+          <div className="mt-4 space-y-3">
+            {unusualSpendInsights.map((signal) => (
+              <div key={signal.date} className="rounded-md border border-rose-200 bg-rose-50 p-3">
+                <p className="font-medium text-rose-900">{signal.date}</p>
+                <p className="text-sm text-rose-800">
+                  ${signal.value.toFixed(2)} vs daily average ${signal.average.toFixed(2)}
+                </p>
+              </div>
+            ))}
+            {unusualSpendInsights.length === 0 && (
+              <p className="text-sm text-slate-500">
+                Not enough data for anomaly detection in this range (try a wider range than {countDaysInclusive(appliedRange.start, appliedRange.end)} days).
+              </p>
+            )}
+          </div>
         </div>
       </section>
 

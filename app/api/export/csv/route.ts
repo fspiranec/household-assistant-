@@ -1,20 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/helpers";
-import { toCsv } from "@/lib/api/export";
+import { formatExpenseRows, toCsv } from "@/lib/api/export";
+import { getFilteredExpensesForExport } from "@/lib/api/exportFilters";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
 
-  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
-  const { data, error } = await auth.supabase.from("expenses").select("*").gte("date", yearStart);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const result = await getFilteredExpensesForExport(req, auth.supabase);
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error?.message ?? "Export failed" }, { status: 400 });
+  }
 
-  const csv = toCsv(data || []);
+  const csv = toCsv(formatExpenseRows(result.data));
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv",
-      "Content-Disposition": "attachment; filename=expenses.csv"
+      "Content-Disposition": 'attachment; filename="dashboard-expenses.csv"'
     }
   });
 }
